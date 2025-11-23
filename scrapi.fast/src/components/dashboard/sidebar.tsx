@@ -15,17 +15,6 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import useSWR from "swr";
 import Link from "next/link";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { useRouter } from "next/navigation";
 
 interface Service {
   id: string;
@@ -44,15 +33,11 @@ interface Project {
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export function Sidebar() {
-  const router = useRouter();
   const { data: projects = [], error, isLoading } = useSWR<Project[]>("/api/projects", fetcher, {
     refreshInterval: 10000, // Refresh every 10 seconds
   });
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
-  const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
-  const [prompt, setPrompt] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
 
   // Auto-expand all projects when they load
   useEffect(() => {
@@ -82,34 +67,6 @@ export function Sidebar() {
     return matchesName || matchesService;
   });
 
-  const handleCreateProject = async () => {
-    if (!prompt.trim()) return;
-
-    setIsCreating(true);
-    try {
-      const response = await fetch("/api/create-service", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: prompt.trim() }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to create service");
-      }
-
-      const result = await response.json();
-      setIsNewProjectOpen(false);
-      setPrompt("");
-
-      // Redirect to dashboard with the service creation in progress
-      router.push(`/dashboard?serviceId=${result.serviceId}&taskId=${result.taskId}`);
-    } catch (error) {
-      console.error("Error creating project:", error);
-    } finally {
-      setIsCreating(false);
-    }
-  };
-
   return (
     <div className="flex h-full w-64 flex-col border-r bg-background">
       {/* Header */}
@@ -122,9 +79,11 @@ export function Sidebar() {
             variant="ghost"
             size="sm"
             className="h-6 w-6 p-0"
-            onClick={() => setIsNewProjectOpen(true)}
+            asChild
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Link href="/dashboard">
+              <Plus className="h-3.5 w-3.5" />
+            </Link>
           </Button>
         </div>
         <div className="relative">
@@ -220,66 +179,14 @@ export function Sidebar() {
           variant="outline"
           size="sm"
           className="h-7 w-full justify-start text-xs"
-          onClick={() => setIsNewProjectOpen(true)}
+          asChild
         >
-          <Plus className="mr-1.5 h-3 w-3" />
-          New Project
+          <Link href="/dashboard">
+            <Plus className="mr-1.5 h-3 w-3" />
+            New Project
+          </Link>
         </Button>
       </div>
-
-      {/* New Project Dialog */}
-      <Dialog open={isNewProjectOpen} onOpenChange={setIsNewProjectOpen}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Create New API Service</DialogTitle>
-            <DialogDescription>
-              Describe what data you want to extract from a website. Include the URL and what information you need.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="prompt">Prompt</Label>
-              <Textarea
-                id="prompt"
-                placeholder="Example: Extract product names and prices from https://example.com/products"
-                className="min-h-[120px]"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                    handleCreateProject();
-                  }
-                }}
-              />
-              <p className="text-xs text-muted-foreground">
-                Tip: Be specific about the URL and the data you want to extract
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsNewProjectOpen(false)}
-              disabled={isCreating}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleCreateProject}
-              disabled={!prompt.trim() || isCreating}
-            >
-              {isCreating ? (
-                <>
-                  <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                  Creating...
-                </>
-              ) : (
-                "Create Service"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
