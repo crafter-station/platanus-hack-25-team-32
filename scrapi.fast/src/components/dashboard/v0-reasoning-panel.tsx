@@ -26,7 +26,7 @@ import {
   MessageResponse,
 } from "@/components/ai-elements/message";
 import { StreamingMessage, Message } from "@v0-sdk/react";
-import type { MessageBinaryFormat } from "v0-sdk";
+import type { MessageBinaryFormat } from "@/lib/v0-types";
 
 interface V0Message {
   id: string;
@@ -49,6 +49,34 @@ interface V0Message {
   }>;
   isStreaming?: boolean;
   stream?: ReadableStream<Uint8Array>;
+}
+
+function extractTextFromMessageBinaryFormat(
+  content: MessageBinaryFormat
+): string {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  if (!Array.isArray(content)) {
+    return "";
+  }
+
+  const texts: string[] = [];
+  const traverse = (arr: any[]) => {
+    for (const item of arr) {
+      if (Array.isArray(item)) {
+        if (item.length >= 3 && item[0] === "text" && typeof item[2] === "string") {
+          texts.push(item[2]);
+        } else {
+          traverse(item);
+        }
+      }
+    }
+  };
+
+  traverse(content);
+  return texts.join(" ") || JSON.stringify(content);
 }
 
 interface V0ReasoningPanelProps {
@@ -89,18 +117,30 @@ export function V0ReasoningPanel({
       <div className="flex-1 overflow-auto p-3 space-y-4">
         {!chatId ? (
           <div className="flex items-center justify-center h-full">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader size={14} />
-              <span className="text-sm font-mono">
-                Waiting for browser scraping...
-              </span>
+            <div className="flex flex-col items-center gap-3">
+              <Loader size={20} />
+              <div className="text-center">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Waiting for chat ID...
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  The chat will be created during trigger execution
+                </p>
+              </div>
             </div>
           </div>
         ) : messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader size={14} />
-              <span className="text-sm font-mono">v0 is thinking...</span>
+            <div className="flex flex-col items-center gap-3">
+              <Loader size={20} />
+              <div className="text-center">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Loading chat history...
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 font-mono">
+                  Chat ID: {chatId.slice(0, 8)}...
+                </p>
+              </div>
             </div>
           </div>
         ) : (
@@ -114,7 +154,7 @@ export function V0ReasoningPanel({
                       <MessageResponse>
                         {typeof msg.content === "string"
                           ? msg.content
-                          : JSON.stringify(msg.content)}
+                          : extractTextFromMessageBinaryFormat(msg.content)}
                       </MessageResponse>
                     </MessageContent>
                   </AIMessage>
@@ -137,68 +177,68 @@ export function V0ReasoningPanel({
                         showLoadingIndicator={false}
                       />
                     ) : (
-                      <>
-                        {/* Reasoning section */}
-                        {msg.reasoning && msg.reasoning.length > 0 && (
-                          <Reasoning defaultOpen={false}>
-                            <ReasoningTrigger />
-                            <ReasoningContent>
-                              {msg.reasoning.join("\n\n")}
-                            </ReasoningContent>
-                          </Reasoning>
-                        )}
+                  <>
+                    {/* Reasoning section */}
+                    {msg.reasoning && msg.reasoning.length > 0 && (
+                      <Reasoning defaultOpen={false}>
+                        <ReasoningTrigger />
+                        <ReasoningContent>
+                          {msg.reasoning.join("\n\n")}
+                        </ReasoningContent>
+                      </Reasoning>
+                    )}
 
-                        {/* Chain of thought steps */}
-                        {msg.tasks && msg.tasks.length > 0 && (
-                          <ChainOfThought defaultOpen={true}>
-                            <ChainOfThoughtHeader>
-                              Execution Steps
-                            </ChainOfThoughtHeader>
-                            <ChainOfThoughtContent>
-                              {msg.tasks.map((task, i) => (
-                                <ChainOfThoughtStep
-                                  key={i}
-                                  label={task.description}
-                                  status={
-                                    task.status === "completed"
-                                      ? "complete"
-                                      : task.status === "in_progress"
-                                        ? "active"
-                                        : "pending"
-                                  }
-                                />
-                              ))}
-                            </ChainOfThoughtContent>
-                          </ChainOfThought>
-                        )}
-
-                        {/* Tools used */}
-                        {msg.tools &&
-                          msg.tools.map((tool, i) => (
-                            <Tool key={i} defaultOpen={false}>
-                              <ToolHeader
-                                title={tool.name}
-                                type={`tool-${tool.name}`}
-                                state={tool.state || "output-available"}
-                              />
-                              <ToolContent>
-                                <ToolInput input={tool.input} />
-                                {tool.output && (
-                                  <ToolOutput
-                                    output={tool.output}
-                                    errorText={undefined}
-                                  />
-                                )}
-                              </ToolContent>
-                            </Tool>
+                    {/* Chain of thought steps */}
+                    {msg.tasks && msg.tasks.length > 0 && (
+                      <ChainOfThought defaultOpen={true}>
+                        <ChainOfThoughtHeader>
+                          Execution Steps
+                        </ChainOfThoughtHeader>
+                        <ChainOfThoughtContent>
+                          {msg.tasks.map((task, i) => (
+                            <ChainOfThoughtStep
+                              key={i}
+                              label={task.description}
+                              status={
+                                task.status === "completed"
+                                  ? "complete"
+                                  : task.status === "in_progress"
+                                    ? "active"
+                                    : "pending"
+                              }
+                            />
                           ))}
+                        </ChainOfThoughtContent>
+                      </ChainOfThought>
+                    )}
 
-                        {/* Message content */}
+                    {/* Tools used */}
+                    {msg.tools &&
+                      msg.tools.map((tool, i) => (
+                        <Tool key={i} defaultOpen={false}>
+                          <ToolHeader
+                            title={tool.name}
+                            type={`tool-${tool.name}`}
+                            state={tool.state || "output-available"}
+                          />
+                          <ToolContent>
+                            <ToolInput input={tool.input} />
+                            {tool.output && (
+                              <ToolOutput
+                                output={tool.output}
+                                errorText={undefined}
+                              />
+                            )}
+                          </ToolContent>
+                        </Tool>
+                      ))}
+
+                    {/* Message content */}
                         {typeof msg.content === "string" ? (
                           <AIMessage from="assistant">
-                            <MessageContent>
-                              <MessageResponse>{msg.content}</MessageResponse>
-                            </MessageContent>
+                      <MessageContent>
+                        <MessageResponse>{msg.content}</MessageResponse>
+                      </MessageContent>
                           </AIMessage>
                         ) : (
                           <Message

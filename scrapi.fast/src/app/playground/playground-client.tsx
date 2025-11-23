@@ -8,9 +8,16 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Loader } from "@/components/ai-elements/loader";
-import { MessageSquare, Plus, Trash2 } from "lucide-react";
-import type { MessageBinaryFormat } from "v0-sdk";
+import { MessageSquare, Plus, Trash2, Copy } from "lucide-react";
+import { toast } from "sonner";
+import type { MessageBinaryFormat } from "@/lib/v0-types";
 
 export function PlaygroundClient() {
   const [chatId, setChatId] = useState<string | null>(null);
@@ -79,19 +86,48 @@ export function PlaygroundClient() {
           </div>
           <div className="flex items-center gap-2">
             {chatId && (
-              <Badge variant="outline" className="font-mono text-xs">
-                {chatId.slice(0, 8)}...
-              </Badge>
-            )}
-            {chatId && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleDeleteChat}
-                className="h-8"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <TooltipProvider>
+                <div className="flex items-center gap-2">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className="font-mono text-xs max-w-[200px] truncate cursor-help"
+                      >
+                        {chatId}
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent className="max-w-md">
+                      <p className="font-mono text-xs break-all">{chatId}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(chatId);
+                      toast.success("Chat ID copied to clipboard");
+                    } catch (error) {
+                      toast.error("Failed to copy chat ID");
+                    }
+                  }}
+                  className="h-8 px-2"
+                  title="Copy chat ID"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeleteChat}
+                  className="h-8"
+                  title="Clear chat"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+                </div>
+              </TooltipProvider>
             )}
             <Button
               variant="outline"

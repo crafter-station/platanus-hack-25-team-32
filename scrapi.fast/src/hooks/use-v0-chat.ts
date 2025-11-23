@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import useSWR from "swr";
-import type { MessageBinaryFormat } from "v0-sdk";
+import type { MessageBinaryFormat } from "@/lib/v0-types";
 
 interface V0Message {
   id: string;
@@ -46,6 +46,7 @@ export function useV0Chat(chatId: string | null | undefined) {
     chatId ? `/api/chats/${chatId}` : null,
     fetcher,
     {
+      refreshInterval: chatId ? 2000 : 0, // Poll every 2 seconds when chat ID exists
       onSuccess: (chat) => {
         if (chat?.messages) {
           const messages: ChatMessage[] = chat.messages.map((msg: any) => ({
