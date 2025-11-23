@@ -21,15 +21,17 @@ import {
   ToolOutput,
 } from "@/components/ai-elements/tool";
 import {
-  Message,
+  Message as AIMessage,
   MessageContent,
   MessageResponse,
 } from "@/components/ai-elements/message";
+import { StreamingMessage, Message } from "@v0-sdk/react";
+import type { MessageBinaryFormat } from "@/lib/v0-types";
 
 interface V0Message {
   id: string;
   role: "user" | "assistant";
-  content: string;
+  content: string | MessageBinaryFormat;
   reasoning?: string[];
   tools?: Array<{
     name: string;
@@ -45,18 +47,52 @@ interface V0Message {
     description: string;
     status: "pending" | "in_progress" | "completed";
   }>;
+  isStreaming?: boolean;
+  stream?: ReadableStream<Uint8Array>;
+}
+
+function extractTextFromMessageBinaryFormat(
+  content: MessageBinaryFormat
+): string {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  if (!Array.isArray(content)) {
+    return "";
+  }
+
+  const texts: string[] = [];
+  const traverse = (arr: any[]) => {
+    for (const item of arr) {
+      if (Array.isArray(item)) {
+        if (item.length >= 3 && item[0] === "text" && typeof item[2] === "string") {
+          texts.push(item[2]);
+        } else {
+          traverse(item);
+        }
+      }
+    }
+  };
+
+  traverse(content);
+  return texts.join(" ") || JSON.stringify(content);
 }
 
 interface V0ReasoningPanelProps {
   chatId?: string;
   messages: V0Message[];
   stage: string;
+  onStreamingComplete?: (content: MessageBinaryFormat) => void;
+  onChatData?: (data: any) => void;
 }
 
 export function V0ReasoningPanel({
   chatId,
   messages,
   stage,
+  onStreamingComplete,
+  onChatData,
 }: V0ReasoningPanelProps) {
   return (
     <div className="flex flex-col overflow-hidden bg-background">
@@ -81,35 +117,66 @@ export function V0ReasoningPanel({
       <div className="flex-1 overflow-auto p-3 space-y-4">
         {!chatId ? (
           <div className="flex items-center justify-center h-full">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader size={14} />
-              <span className="text-sm font-mono">
-                Waiting for browser scraping...
-              </span>
+            <div className="flex flex-col items-center gap-3">
+              <Loader size={20} />
+              <div className="text-center">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Waiting for chat ID...
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  The chat will be created during trigger execution
+                </p>
+              </div>
             </div>
           </div>
         ) : messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader size={14} />
-              <span className="text-sm font-mono">v0 is thinking...</span>
+            <div className="flex flex-col items-center gap-3">
+              <Loader size={20} />
+              <div className="text-center">
+                <p className="text-sm font-medium text-muted-foreground">
+                  Loading chat history...
+                </p>
+                <p className="text-xs text-muted-foreground mt-1 font-mono">
+                  Chat ID: {chatId.slice(0, 8)}...
+                </p>
+              </div>
             </div>
           </div>
         ) : (
           <>
-            {messages.map((msg) => (
-              <div key={msg.id} className="space-y-3">
+            {messages.map((msg, index) => (
+              <div key={msg.id || `msg-${index}`} className="space-y-3">
                 {/* User messages */}
                 {msg.role === "user" && (
-                  <Message from="user">
+                  <AIMessage from="user">
                     <MessageContent>
-                      <MessageResponse>{msg.content}</MessageResponse>
+                      <MessageResponse>
+                        {typeof msg.content === "string"
+                          ? msg.content
+                          : extractTextFromMessageBinaryFormat(msg.content)}
+                      </MessageResponse>
                     </MessageContent>
-                  </Message>
+                  </AIMessage>
                 )}
 
                 {/* Assistant reasoning and responses */}
                 {msg.role === "assistant" && (
+                  <>
+                    {/* Streaming message */}
+                    {msg.isStreaming && msg.stream ? (
+                      <StreamingMessage
+                        stream={msg.stream}
+                        messageId={msg.id || `stream-${index}`}
+                        role="assistant"
+                        onComplete={onStreamingComplete}
+                        onChatData={onChatData}
+                        onError={(error) =>
+                          console.error("Streaming error:", error)
+                        }
+                        showLoadingIndicator={false}
+                      />
+                    ) : (
                   <>
                     {/* Reasoning section */}
                     {msg.reasoning && msg.reasoning.length > 0 && (
@@ -167,11 +234,21 @@ export function V0ReasoningPanel({
                       ))}
 
                     {/* Message content */}
-                    <Message from="assistant">
+                        {typeof msg.content === "string" ? (
+                          <AIMessage from="assistant">
                       <MessageContent>
                         <MessageResponse>{msg.content}</MessageResponse>
                       </MessageContent>
-                    </Message>
+                          </AIMessage>
+                        ) : (
+                          <Message
+                            content={msg.content}
+                            messageId={msg.id || `msg-${index}`}
+                            role="assistant"
+                          />
+                        )}
+                      </>
+                    )}
                   </>
                 )}
               </div>

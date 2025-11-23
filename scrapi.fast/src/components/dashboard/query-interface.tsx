@@ -1,13 +1,15 @@
 "use client";
 
 import { Circle, Globe, Sparkles, Zap } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { BrowserbasePanel } from "./browserbase-panel";
 import { CodeTestPanel } from "./code-test-panel";
 import { V0ReasoningPanel } from "./v0-reasoning-panel";
+import { useV0Chat } from "@/hooks/use-v0-chat";
+import useSWR from "swr";
 
 const PLACEHOLDER_URLS = [
   "https://example.com/products",
@@ -102,8 +104,41 @@ export function QueryInterface() {
     stage: "idle",
   });
 
+  const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
   const metadata = mockMetadata;
   const stage = metadata?.stage || "idle";
+
+  // Poll for service until agent_chat_id is available
+  const { data: service } = useSWR(
+    taskResult?.serviceId ? `/api/get-service?id=${taskResult.serviceId}` : null,
+    fetcher,
+    {
+      refreshInterval: (data) => {
+        // Keep polling if no chat ID yet and we're in generating stage
+        if (!data?.agent_chat_id && stage === "generating") {
+          return 2000; // Poll every 2 seconds
+        }
+        return 0; // Stop polling once chat ID is available
+      },
+    }
+  );
+
+  const {
+    chatHistory,
+    isLoading: isChatLoading,
+    isStreaming,
+    handleStreamingComplete,
+    handleChatData,
+  } = useV0Chat(service?.agent_chat_id);
+
+  // Update stage when chat ID becomes available
+  useEffect(() => {
+    if (service?.agent_chat_id && stage === "generating") {
+      // Chat ID is now available, we can start showing messages
+      // Stage will remain "generating" until the workflow completes
+    }
+  }, [service?.agent_chat_id, stage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -215,9 +250,20 @@ export function QueryInterface() {
           />
 
           <V0ReasoningPanel
-            chatId={metadata?.v0?.chatId}
-            messages={metadata?.v0?.messages || []}
+            chatId={service?.agent_chat_id || metadata?.v0?.chatId}
+            messages={chatHistory.length > 0 ? chatHistory.map((msg) => ({
+              id: msg.id,
+              role: msg.role,
+              content: msg.content,
+              reasoning: msg.reasoning,
+              tools: msg.tools,
+              tasks: msg.tasks,
+              isStreaming: msg.isStreaming,
+              stream: msg.stream,
+            })) : (metadata?.v0?.messages || [])}
             stage={stage}
+            onStreamingComplete={handleStreamingComplete}
+            onChatData={handleChatData}
           />
 
           <CodeTestPanel
