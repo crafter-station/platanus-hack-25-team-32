@@ -14,14 +14,48 @@ export async function POST(request: Request) {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { url, prompt } = await request.json();
+  const { prompt: userPrompt } = await request.json();
 
-  if (!url || !prompt) {
+  if (!userPrompt) {
     return Response.json(
-      { error: "Missing required fields: url, prompt" },
+      { error: "Missing required field: prompt" },
       { status: 400 },
     );
   }
+
+  // Step 1: Extract URL and query from user's single prompt
+  const { object: extractedEntities } = await generateObject({
+    model: groq("openai/gpt-oss-120b"),
+    schema: z.object({
+      url: z
+        .string()
+        .url()
+        .describe(
+          "The URL to scrape, extracted from the user's prompt. Must be a valid URL with protocol (https://)",
+        ),
+      query: z
+        .string()
+        .describe(
+          "The extraction goal - what data to scrape from the URL. Extracted from the user's prompt.",
+        ),
+    }),
+    prompt: `Extract the URL and the scraping goal from this user request:
+
+"${userPrompt}"
+
+Your task:
+1. url: Identify and extract the URL from the request. Ensure it has proper protocol (https://)
+2. query: Extract what data the user wants to scrape from that URL
+
+Examples:
+- Input: "Extract all product names and prices from https://example.com/products"
+  Output: { url: "https://example.com/products", query: "Extract all product names and prices" }
+
+- Input: "Get event hosts names and photos from https://luma.com/event-id"
+  Output: { url: "https://luma.com/event-id", query: "Get event hosts names and photos" }`,
+  });
+
+  const { url, query: prompt } = extractedEntities;
 
   let [project] = await db
     .select()
@@ -41,6 +75,7 @@ export async function POST(request: Request) {
       .returning();
   }
 
+  // Step 2: Generate service configuration using extracted entities
   const { object } = await generateObject({
     model: groq("openai/gpt-oss-120b"),
     schema: z.object({

@@ -1,12 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ChevronDown,
   ChevronRight,
   Folder,
   Globe,
-  Rocket,
   Plus,
   Search,
 } from "lucide-react";
@@ -14,72 +13,53 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-
-interface Deployment {
-  id: string;
-  status: "active" | "building" | "error";
-  timestamp: string;
-}
+import useSWR from "swr";
+import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useRouter } from "next/navigation";
 
 interface Service {
   id: string;
   name: string;
-  url: string;
-  deployments: Deployment[];
+  url: string | null;
+  description: string | null;
 }
 
 interface Project {
   id: string;
   name: string;
+  description: string | null;
   services: Service[];
 }
 
-// Mock data
-const MOCK_PROJECTS: Project[] = [
-  {
-    id: "1",
-    name: "E-commerce Scraper",
-    services: [
-      {
-        id: "s1",
-        name: "product-api",
-        url: "product-api.scrapi.fast",
-        deployments: [
-          { id: "d1", status: "active", timestamp: "2m ago" },
-          { id: "d2", status: "active", timestamp: "1h ago" },
-        ],
-      },
-      {
-        id: "s2",
-        name: "inventory-sync",
-        url: "inventory.scrapi.fast",
-        deployments: [{ id: "d3", status: "building", timestamp: "just now" }],
-      },
-    ],
-  },
-  {
-    id: "2",
-    name: "Job Board Aggregator",
-    services: [
-      {
-        id: "s3",
-        name: "jobs-api",
-        url: "jobs.scrapi.fast",
-        deployments: [{ id: "d4", status: "active", timestamp: "5m ago" }],
-      },
-    ],
-  },
-];
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export function Sidebar() {
-  const [projects] = useState<Project[]>(MOCK_PROJECTS);
-  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(
-    new Set(["1"]),
-  );
-  const [expandedServices, setExpandedServices] = useState<Set<string>>(
-    new Set(["s1"]),
-  );
+  const router = useRouter();
+  const { data: projects = [], error, isLoading } = useSWR<Project[]>("/api/projects", fetcher, {
+    refreshInterval: 10000, // Refresh every 10 seconds
+  });
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
+  const [isNewProjectOpen, setIsNewProjectOpen] = useState(false);
+  const [prompt, setPrompt] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
+
+  // Auto-expand all projects when they load
+  useEffect(() => {
+    if (projects.length > 0 && expandedProjects.size === 0) {
+      setExpandedProjects(new Set(projects.map(p => p.id)));
+    }
+  }, [projects]);
 
   const toggleProject = (projectId: string) => {
     setExpandedProjects((prev) => {
@@ -93,32 +73,42 @@ export function Sidebar() {
     });
   };
 
-  const toggleService = (serviceId: string) => {
-    setExpandedServices((prev) => {
-      const next = new Set(prev);
-      if (next.has(serviceId)) {
-        next.delete(serviceId);
-      } else {
-        next.add(serviceId);
-      }
-      return next;
-    });
-  };
+  const filteredProjects = projects.filter((project) => {
+    const matchesName = project.name.toLowerCase().includes(search.toLowerCase());
+    const matchesService = project.services?.some((service) =>
+      service.name.toLowerCase().includes(search.toLowerCase()) ||
+      service.description?.toLowerCase().includes(search.toLowerCase())
+    );
+    return matchesName || matchesService;
+  });
 
-  const getStatusColor = (status: Deployment["status"]) => {
-    switch (status) {
-      case "active":
-        return "bg-primary";
-      case "building":
-        return "bg-yellow-500";
-      case "error":
-        return "bg-destructive";
+  const handleCreateProject = async () => {
+    if (!prompt.trim()) return;
+
+    setIsCreating(true);
+    try {
+      const response = await fetch("/api/create-service", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: prompt.trim() }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to create service");
+      }
+
+      const result = await response.json();
+      setIsNewProjectOpen(false);
+      setPrompt("");
+
+      // Redirect to dashboard with the service creation in progress
+      router.push(`/dashboard?serviceId=${result.serviceId}&taskId=${result.taskId}`);
+    } catch (error) {
+      console.error("Error creating project:", error);
+    } finally {
+      setIsCreating(false);
     }
   };
-
-  const filteredProjects = projects.filter((project) =>
-    project.name.toLowerCase().includes(search.toLowerCase()),
-  );
 
   return (
     <div className="flex h-full w-64 flex-col border-r bg-background">
@@ -128,7 +118,12 @@ export function Sidebar() {
           <span className="text-xs font-semibold text-muted-foreground">
             PROJECTS
           </span>
-          <Button variant="ghost" size="sm" className="h-6 w-6 p-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0"
+            onClick={() => setIsNewProjectOpen(true)}
+          >
             <Plus className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -145,81 +140,66 @@ export function Sidebar() {
 
       {/* Projects List */}
       <div className="flex-1 overflow-auto p-2">
-        {filteredProjects.map((project) => (
+        {isLoading && (
+          <div className="flex items-center justify-center py-8">
+            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          </div>
+        )}
+        {error && (
+          <div className="p-2 text-xs text-destructive">
+            Failed to load projects
+          </div>
+        )}
+        {!isLoading && !error && filteredProjects.map((project) => (
           <div key={project.id} className="mb-1">
             {/* Project */}
-            <button
-              onClick={() => toggleProject(project.id)}
-              className="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-xs hover:bg-accent"
-            >
-              {expandedProjects.has(project.id) ? (
-                <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-              ) : (
-                <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-              )}
-              <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              <span className="flex-1 truncate font-medium">
-                {project.name}
-              </span>
-              <Badge
-                variant="secondary"
-                className="h-4 px-1.5 text-[9px] font-normal"
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => toggleProject(project.id)}
+                className="flex items-center rounded px-1 py-1.5 hover:bg-accent"
               >
-                {project.services.length}
-              </Badge>
-            </button>
+                {expandedProjects.has(project.id) ? (
+                  <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+                )}
+              </button>
+              <Link
+                href={`/dashboard/projects/${project.id}`}
+                className="flex flex-1 items-center gap-1.5 rounded px-2 py-1.5 text-left text-xs hover:bg-accent"
+              >
+                <Folder className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="flex-1 truncate font-medium">
+                  {project.name}
+                </span>
+                <Badge
+                  variant="secondary"
+                  className="h-4 px-1.5 text-[9px] font-normal"
+                >
+                  {project.services.length}
+                </Badge>
+              </Link>
+            </div>
 
             {/* Services */}
             {expandedProjects.has(project.id) && (
               <div className="ml-4 mt-0.5 space-y-0.5">
                 {project.services.map((service) => (
-                  <div key={service.id}>
-                    {/* Service */}
-                    <button
-                      onClick={() => toggleService(service.id)}
-                      className="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-xs hover:bg-accent"
-                    >
-                      {expandedServices.has(service.id) ? (
-                        <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
-                      )}
-                      <Globe className="h-3 w-3 shrink-0 text-primary" />
-                      <div className="flex-1 truncate font-mono">
-                        <div className="font-medium">{service.name}</div>
-                        <div className="text-[10px] text-muted-foreground">
-                          {service.url}
+                  <Link
+                    key={service.id}
+                    href={`/dashboard/services/${service.id}`}
+                    className="flex w-full items-center gap-1.5 rounded px-2 py-1.5 text-left text-xs hover:bg-accent"
+                  >
+                    <Globe className="h-3 w-3 shrink-0 text-primary" />
+                    <div className="flex-1 truncate">
+                      <div className="font-medium font-mono">{service.name}</div>
+                      {service.description && (
+                        <div className="text-[10px] text-muted-foreground truncate">
+                          {service.description}
                         </div>
-                      </div>
-                    </button>
-
-                    {/* Deployments */}
-                    {expandedServices.has(service.id) && (
-                      <div className="ml-4 mt-0.5 space-y-0.5">
-                        {service.deployments.map((deployment) => (
-                          <button
-                            key={deployment.id}
-                            className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-accent"
-                          >
-                            <Rocket className="h-3 w-3 shrink-0 text-muted-foreground" />
-                            <div className="flex-1">
-                              <div className="flex items-center gap-1.5">
-                                <div
-                                  className={cn(
-                                    "h-1.5 w-1.5 rounded-full",
-                                    getStatusColor(deployment.status),
-                                  )}
-                                />
-                                <span className="text-[10px] text-muted-foreground">
-                                  {deployment.timestamp}
-                                </span>
-                              </div>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  </Link>
                 ))}
               </div>
             )}
@@ -240,11 +220,66 @@ export function Sidebar() {
           variant="outline"
           size="sm"
           className="h-7 w-full justify-start text-xs"
+          onClick={() => setIsNewProjectOpen(true)}
         >
           <Plus className="mr-1.5 h-3 w-3" />
           New Project
         </Button>
       </div>
+
+      {/* New Project Dialog */}
+      <Dialog open={isNewProjectOpen} onOpenChange={setIsNewProjectOpen}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Create New API Service</DialogTitle>
+            <DialogDescription>
+              Describe what data you want to extract from a website. Include the URL and what information you need.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="prompt">Prompt</Label>
+              <Textarea
+                id="prompt"
+                placeholder="Example: Extract product names and prices from https://example.com/products"
+                className="min-h-[120px]"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                    handleCreateProject();
+                  }
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                Tip: Be specific about the URL and the data you want to extract
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsNewProjectOpen(false)}
+              disabled={isCreating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateProject}
+              disabled={!prompt.trim() || isCreating}
+            >
+              {isCreating ? (
+                <>
+                  <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                  Creating...
+                </>
+              ) : (
+                "Create Service"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

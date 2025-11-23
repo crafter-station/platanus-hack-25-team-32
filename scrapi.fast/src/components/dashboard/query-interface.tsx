@@ -1,30 +1,25 @@
 "use client";
 
-import { Circle, Globe, Sparkles, Zap } from "lucide-react";
+import { Circle, Sparkles, Zap } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { BrowserbasePanel } from "./browserbase-panel";
 import { CodeTestPanel } from "./code-test-panel";
-import { V0ReasoningPanel } from "./v0-reasoning-panel";
+import { ScrapiLogsPanel } from "./scrapi-logs-panel";
 import { useV0Chat } from "@/hooks/use-v0-chat";
 import useSWR from "swr";
+import { Shimmer } from "@/components/ai-elements/shimmer";
 
-const PLACEHOLDER_URLS = [
-  "https://example.com/products",
-  "https://luma.com/event-id",
-  "https://example.com/blog",
-];
-
-const PLACEHOLDER_QUERIES = [
-  "Extract all product names and prices",
-  "Get event hosts names and photos",
-  "Scrape article titles and publication dates",
+const PLACEHOLDER_PROMPTS = [
+  "Generate an API that returns the sell and buy price of USD in Peru from https://kambista.com/",
+  "Fetch the five most recent events, including the date, time, registration link, and image from https://www.buk.cl/recursos/eventos-recursos-humanos",
+  "Extract the title and description of the upcoming Buk webinars from https://www.buk.cl/recursos/eventos-recursos-humanos",
 ];
 
 type WorkflowStage =
   | "idle"
+  | "extracting"
   | "scraping"
   | "generating"
   | "testing"
@@ -34,17 +29,6 @@ type WorkflowStage =
 
 interface WorkflowMetadata {
   stage: WorkflowStage;
-
-  browserbase?: {
-    sessionId: string;
-    sessionUrl: string;
-    logs: Array<{
-      timestamp: string;
-      type: "console" | "network" | "error";
-      message: string;
-      data?: unknown;
-    }>;
-  };
 
   v0?: {
     chatId: string;
@@ -91,18 +75,36 @@ interface WorkflowMetadata {
   error?: string;
 }
 
-export function QueryInterface() {
-  const [url, setUrl] = useState("");
-  const [query, setQuery] = useState("");
+interface QueryInterfaceProps {
+  serviceId?: string | null;
+  taskId?: string | null;
+}
+
+export function QueryInterface({ serviceId: initialServiceId, taskId: initialTaskId }: QueryInterfaceProps = {}) {
+  const [prompt, setPrompt] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [taskResult, setTaskResult] = useState<{
     serviceId: string;
     taskId: string;
-  } | null>(null);
+  } | null>(
+    initialServiceId && initialTaskId
+      ? { serviceId: initialServiceId, taskId: initialTaskId }
+      : null
+  );
 
   const [mockMetadata, setMockMetadata] = useState<WorkflowMetadata>({
-    stage: "idle",
+    stage: initialServiceId ? "generating" : "idle",
   });
+
+  const [fakeLogs, setFakeLogs] = useState<Array<{
+    id: string;
+    role: "assistant";
+    content: string;
+    tasks?: Array<{
+      description: string;
+      status: "pending" | "in_progress" | "completed";
+    }>;
+  }>>([]);
 
   const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -140,20 +142,75 @@ export function QueryInterface() {
     }
   }, [service?.agent_chat_id, stage]);
 
+  // Generate fake logs with structured tasks
+  useEffect(() => {
+    if (stage !== "extracting" && stage !== "scraping" && stage !== "generating") {
+      setFakeLogs([]);
+      return;
+    }
+
+    // Create a single message with all tasks for the current stage
+    const stageMessage = {
+      extracting: {
+        id: "extracting-tasks",
+        role: "assistant" as const,
+        content: "Analyzing prompt and extracting entities",
+        tasks: [
+          { description: "Parse user prompt", status: "completed" as const },
+          { description: "Extract URL entity", status: "completed" as const },
+          { description: "Extract extraction goal", status: "completed" as const },
+        ],
+      },
+      scraping: {
+        id: "scraping-tasks",
+        role: "assistant" as const,
+        content: "Scraping webpage for data patterns",
+        tasks: [
+          { description: "Initialize browser session", status: "completed" as const },
+          { description: "Navigate to target URL", status: "completed" as const },
+          { description: "Load page content", status: "completed" as const },
+          { description: "Analyze DOM structure", status: "completed" as const },
+          { description: "Capture HTML snapshot", status: "completed" as const },
+        ],
+      },
+      generating: {
+        id: "generating-tasks",
+        role: "assistant" as const,
+        content: "Generating extraction code with AI",
+        tasks: [
+          { description: "Start AI code generation", status: "completed" as const },
+          { description: "Analyze data patterns", status: "completed" as const },
+          { description: "Generate extraction selectors", status: "in_progress" as const },
+          { description: "Build Zod schemas", status: "pending" as const },
+          { description: "Create test cases", status: "pending" as const },
+          { description: "Optimize performance", status: "pending" as const },
+        ],
+      },
+    };
+
+    const message = stageMessage[stage as keyof typeof stageMessage];
+    if (message) {
+      setFakeLogs([message]);
+    }
+  }, [stage]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!url.trim() || !query.trim()) return;
+    if (!prompt.trim()) return;
 
     setIsSubmitting(true);
-    setMockMetadata({ stage: "scraping" });
+    setMockMetadata({ stage: "extracting" });
 
     try {
+      // Simulate extraction step
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setMockMetadata({ stage: "scraping" });
+
       const response = await fetch("/api/create-service", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          url: url.trim(),
-          prompt: query.trim(),
+          prompt: prompt.trim(),
         }),
       });
 
@@ -182,30 +239,18 @@ export function QueryInterface() {
       <div className="border-b bg-background px-4 py-3 space-y-3">
         <form onSubmit={handleSubmit} className="flex gap-2">
           <div className="flex-1 flex items-center gap-2 border rounded-md px-3 py-2">
-            <Globe className="size-4 text-muted-foreground" />
-            <Input
-              placeholder={PLACEHOLDER_URLS[0]}
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              disabled={stage !== "idle" || isSubmitting}
-              className="border-0 p-0 h-auto focus-visible:ring-0 shadow-none"
-            />
-          </div>
-          <div className="flex-1 flex items-center gap-2 border rounded-md px-3 py-2">
             <Sparkles className="size-4 text-muted-foreground" />
             <Input
-              placeholder={PLACEHOLDER_QUERIES[0]}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              placeholder={PLACEHOLDER_PROMPTS[0]}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
               disabled={stage !== "idle" || isSubmitting}
               className="border-0 p-0 h-auto focus-visible:ring-0 shadow-none"
             />
           </div>
           <Button
             type="submit"
-            disabled={
-              !url.trim() || !query.trim() || stage !== "idle" || isSubmitting
-            }
+            disabled={!prompt.trim() || stage !== "idle" || isSubmitting}
             className="shrink-0"
           >
             {stage === "idle" && !isSubmitting ? (
@@ -224,15 +269,21 @@ export function QueryInterface() {
 
         {/* Live Status */}
         {stage !== "idle" && (
-          <div className="flex items-center gap-2 text-sm">
+          <div className={cn(
+            "flex items-center gap-2 text-sm px-3 py-2 rounded-md",
+            stage === "extracting" && "bg-stripes"
+          )}>
             <StatusBadge stage={stage} />
-            <span className="text-muted-foreground">
-              {stage === "scraping" && "Analyzing webpage..."}
-              {stage === "generating" &&
-                `Generating extraction code... ${taskResult ? `(Task: ${taskResult.taskId})` : ""}`}
-              {stage === "testing" &&
-                `Testing code (Attempt ${metadata?.tests?.currentAttempt}/${metadata?.tests?.maxAttempts})...`}
-              {stage === "retrying" && "Fixing errors..."}
+            <span className="text-muted-foreground font-mono text-xs">
+              {stage === "extracting" && <Shimmer duration={1.5}>Identifying entities from prompt...</Shimmer>}
+              {stage === "scraping" && <Shimmer duration={1.5}>Analyzing webpage...</Shimmer>}
+              {stage === "generating" && <Shimmer duration={1.5}>
+                {`Generating extraction code... ${taskResult ? `(Task: ${taskResult.taskId})` : ""}`}
+              </Shimmer>}
+              {stage === "testing" && <Shimmer duration={1.5}>
+                {`Testing code (Attempt ${metadata?.tests?.currentAttempt}/${metadata?.tests?.maxAttempts})...`}
+              </Shimmer>}
+              {stage === "retrying" && <Shimmer duration={1.5}>Fixing errors...</Shimmer>}
               {stage === "completed" && "API Ready!"}
               {stage === "failed" && "Failed"}
             </span>
@@ -240,27 +291,25 @@ export function QueryInterface() {
         )}
       </div>
 
-      {/* 3 Panels */}
+      {/* 2 Panels - 50/50 Split */}
       {stage !== "idle" && (
-        <div className="flex-1 grid grid-cols-3 gap-px bg-border overflow-hidden">
-          <BrowserbasePanel
-            sessionId={metadata?.browserbase?.sessionId}
-            sessionUrl={metadata?.browserbase?.sessionUrl}
-            logs={metadata?.browserbase?.logs || []}
-          />
-
-          <V0ReasoningPanel
+        <div className="flex-1 grid grid-cols-2 gap-px bg-border overflow-hidden">
+          <ScrapiLogsPanel
             chatId={service?.agent_chat_id || metadata?.v0?.chatId}
-            messages={chatHistory.length > 0 ? chatHistory.map((msg) => ({
-              id: msg.id,
-              role: msg.role,
-              content: msg.content,
-              reasoning: msg.reasoning,
-              tools: msg.tools,
-              tasks: msg.tasks,
-              isStreaming: msg.isStreaming,
-              stream: msg.stream,
-            })) : (metadata?.v0?.messages || [])}
+            messages={
+              chatHistory.length > 0
+                ? chatHistory.map((msg) => ({
+                    id: msg.id,
+                    role: msg.role,
+                    content: msg.content,
+                    reasoning: msg.reasoning,
+                    tools: msg.tools,
+                    tasks: msg.tasks,
+                    isStreaming: msg.isStreaming,
+                    stream: msg.stream,
+                  }))
+                : [...fakeLogs, ...(metadata?.v0?.messages || [])]
+            }
             stage={stage}
             onStreamingComplete={handleStreamingComplete}
             onChatData={handleChatData}
@@ -271,6 +320,7 @@ export function QueryInterface() {
             testResults={metadata?.tests?.results || []}
             currentAttempt={metadata?.tests?.currentAttempt}
             maxAttempts={metadata?.tests?.maxAttempts}
+            serviceId={taskResult?.serviceId}
           />
         </div>
       )}
@@ -291,43 +341,23 @@ export function QueryInterface() {
                 working API for you
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-4 text-left">
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">
-                  Example URLs:
-                </p>
-                <div className="space-y-1">
-                  {PLACEHOLDER_URLS.map((urlExample, i) => (
-                    <Button
-                      key={i}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setUrl(urlExample)}
-                      className="w-full justify-start text-xs font-mono"
-                    >
-                      <Globe className="size-3 mr-2" />
-                      {urlExample}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <p className="text-xs font-medium text-muted-foreground mb-2">
-                  Example queries:
-                </p>
-                <div className="space-y-1">
-                  {PLACEHOLDER_QUERIES.map((queryExample, i) => (
-                    <Button
-                      key={i}
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setQuery(queryExample)}
-                      className="w-full justify-start text-xs"
-                    >
-                      {queryExample}
-                    </Button>
-                  ))}
-                </div>
+            <div className="space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">
+                Example prompts:
+              </p>
+              <div className="space-y-2">
+                {PLACEHOLDER_PROMPTS.map((example, i) => (
+                  <Button
+                    key={i}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPrompt(example)}
+                    className="w-full justify-start text-xs text-left h-auto py-2"
+                  >
+                    <Sparkles className="size-3 mr-2 shrink-0" />
+                    <span className="line-clamp-2">{example}</span>
+                  </Button>
+                ))}
               </div>
             </div>
           </div>
@@ -347,6 +377,7 @@ export function QueryInterface() {
 function StatusBadge({ stage }: { stage: WorkflowStage }) {
   const colors: Record<WorkflowStage, string> = {
     idle: "bg-gray-500",
+    extracting: "bg-cyan-500",
     scraping: "bg-blue-500",
     generating: "bg-purple-500",
     testing: "bg-orange-500",
