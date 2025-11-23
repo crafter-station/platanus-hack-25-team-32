@@ -111,17 +111,17 @@ export function QueryInterface({ serviceId: initialServiceId, taskId: initialTas
   const metadata = mockMetadata;
   const stage = metadata?.stage || "idle";
 
-  // Poll for service until agent_chat_id is available
+  // Poll for service until script is generated
   const { data: service } = useSWR(
     taskResult?.serviceId ? `/api/get-service?id=${taskResult.serviceId}` : null,
     fetcher,
     {
       refreshInterval: (data) => {
-        // Keep polling if no chat ID yet and we're in generating stage
-        if (!data?.agent_chat_id && stage === "generating") {
+        // Keep polling if script is not yet generated
+        if (!data?.script && (stage === "generating" || stage === "extracting" || stage === "scraping")) {
           return 2000; // Poll every 2 seconds
         }
-        return 0; // Stop polling once chat ID is available
+        return 0; // Stop polling once script is available
       },
     }
   );
@@ -134,17 +134,17 @@ export function QueryInterface({ serviceId: initialServiceId, taskId: initialTas
     handleChatData,
   } = useV0Chat(service?.agent_chat_id);
 
-  // Update stage when chat ID becomes available
+  // Update stage when service is complete
   useEffect(() => {
-    if (service?.agent_chat_id && stage === "generating") {
-      // Chat ID is now available, we can start showing messages
-      // Stage will remain "generating" until the workflow completes
+    if (service?.script && (stage === "generating" || stage === "extracting" || stage === "scraping")) {
+      // Service has script, mark as completed
+      setMockMetadata({ stage: "completed" });
     }
-  }, [service?.agent_chat_id, stage]);
+  }, [service?.script, stage]);
 
-  // Generate fake logs with structured tasks
+  // Generate fake logs with structured tasks - clear when completed
   useEffect(() => {
-    if (stage !== "extracting" && stage !== "scraping" && stage !== "generating") {
+    if (stage === "completed" || (stage !== "extracting" && stage !== "scraping" && stage !== "generating")) {
       setFakeLogs([]);
       return;
     }
@@ -268,7 +268,7 @@ export function QueryInterface({ serviceId: initialServiceId, taskId: initialTas
         </form>
 
         {/* Live Status */}
-        {stage !== "idle" && (
+        {stage !== "idle" && stage !== "completed" && (
           <div className={cn(
             "flex items-center gap-2 text-sm px-3 py-2 rounded-md",
             stage === "extracting" && "bg-stripes"
@@ -284,7 +284,6 @@ export function QueryInterface({ serviceId: initialServiceId, taskId: initialTas
                 {`Testing code (Attempt ${metadata?.tests?.currentAttempt}/${metadata?.tests?.maxAttempts})...`}
               </Shimmer>}
               {stage === "retrying" && <Shimmer duration={1.5}>Fixing errors...</Shimmer>}
-              {stage === "completed" && "API Ready!"}
               {stage === "failed" && "Failed"}
             </span>
           </div>
