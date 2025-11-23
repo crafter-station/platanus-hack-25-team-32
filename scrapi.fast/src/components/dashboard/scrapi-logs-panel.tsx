@@ -106,6 +106,7 @@ interface ScrapiLogsPanelProps {
 	chatId?: string;
 	messages: V0Message[];
 	stage: string;
+	isLoading?: boolean;
 	onStreamingComplete?: (content: MessageBinaryFormat) => void;
 	onChatData?: (data: any) => void;
 }
@@ -114,6 +115,7 @@ export function ScrapiLogsPanel({
 	chatId,
 	messages,
 	stage,
+	isLoading = false,
 	onStreamingComplete,
 	onChatData,
 }: ScrapiLogsPanelProps) {
@@ -152,7 +154,7 @@ export function ScrapiLogsPanel({
 							</div>
 						</div>
 					</div>
-				) : messages.length === 0 ? (
+				) : isLoading && messages.length === 0 ? (
 					<div className="flex items-center justify-center h-full">
 						<div className="flex flex-col items-center gap-2">
 							<Loader size={20} />

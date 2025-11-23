@@ -83,6 +83,7 @@ interface V0ReasoningPanelProps {
   chatId?: string;
   messages: V0Message[];
   stage: string;
+  isLoading?: boolean;
   onStreamingComplete?: (content: MessageBinaryFormat) => void;
   onChatData?: (data: any) => void;
 }
@@ -91,6 +92,7 @@ export function V0ReasoningPanel({
   chatId,
   messages,
   stage,
+  isLoading = false,
   onStreamingComplete,
   onChatData,
 }: V0ReasoningPanelProps) {
@@ -129,7 +131,7 @@ export function V0ReasoningPanel({
               </div>
             </div>
           </div>
-        ) : messages.length === 0 ? (
+        ) : isLoading && messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="flex flex-col items-center gap-2">
               <Loader size={20} />

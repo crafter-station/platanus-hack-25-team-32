@@ -129,6 +129,7 @@ export function QueryInterface({ serviceId: initialServiceId, taskId: initialTas
   const {
     chatHistory,
     isLoading: isChatLoading,
+    error: chatError,
     isStreaming,
     handleStreamingComplete,
     handleChatData,
@@ -310,6 +311,7 @@ export function QueryInterface({ serviceId: initialServiceId, taskId: initialTas
                 : [...fakeLogs, ...(metadata?.v0?.messages || [])]
             }
             stage={stage}
+            isLoading={isChatLoading}
             onStreamingComplete={handleStreamingComplete}
             onChatData={handleChatData}
           />
