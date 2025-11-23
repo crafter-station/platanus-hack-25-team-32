@@ -22,6 +22,23 @@ interface ScrapiLogsPanelProps {
 	onChatData?: (data: any) => void;
 }
 
+// Custom components to match our design system
+const messageComponents = {
+	p: { className: "mb-4 text-sm leading-relaxed" },
+	h1: { className: "text-2xl font-semibold mb-4 mt-6" },
+	h2: { className: "text-xl font-semibold mb-3 mt-5" },
+	h3: { className: "text-lg font-semibold mb-2 mt-4" },
+	ul: { className: "list-disc pl-6 mb-4 space-y-1" },
+	ol: { className: "list-decimal pl-6 mb-4 space-y-1" },
+	li: { className: "text-sm" },
+	code: { className: "bg-muted px-1.5 py-0.5 rounded text-sm font-mono" },
+	pre: { className: "bg-muted p-4 rounded-lg overflow-x-auto mb-4 border border-border" },
+	blockquote: { className: "border-l-4 border-border pl-4 italic text-muted-foreground mb-4" },
+	a: { className: "text-primary underline hover:opacity-80" },
+	strong: { className: "font-semibold" },
+	hr: { className: "my-6 border-border" },
+};
+
 export function ScrapiLogsPanel({
 	chatId,
 	messages,
@@ -82,7 +99,7 @@ export function ScrapiLogsPanel({
 				) : (
 					<>
 						{messages.map((msg, index) => (
-							<div key={msg.id || `msg-${index}`}>
+							<div key={msg.id || `msg-${index}`} className="rounded-lg border border-border bg-card p-4">
 								{msg.isStreaming && msg.stream ? (
 									<StreamingMessage
 										stream={msg.stream}
@@ -94,12 +111,16 @@ export function ScrapiLogsPanel({
 											console.error("Streaming error:", error)
 										}
 										showLoadingIndicator={false}
+										components={messageComponents}
+										className="prose prose-sm dark:prose-invert max-w-none"
 									/>
 								) : (
 									<Message
 										content={msg.content}
 										messageId={msg.id || `msg-${index}`}
 										role={msg.role}
+										components={messageComponents}
+										className="prose prose-sm dark:prose-invert max-w-none"
 									/>
 								)}
 							</div>
