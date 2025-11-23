@@ -85,6 +85,12 @@ export const scrapePageLogs = schemaTask({
         reqUrl.includes("brevo.com") ||
         reqUrl.includes("kommo.com") ||
         reqUrl.includes("sentry.io") ||
+        reqUrl.includes("doubleclick.net") ||
+        reqUrl.includes("hubapi.com") ||
+        reqUrl.includes("hs-banner.com") ||
+        reqUrl.includes("hotjar.io") ||
+        reqUrl.includes("amplitude.com") ||
+        reqUrl.includes("adtrafficquality.google") ||
         reqUrl.startsWith("https://analytics.google.com") ||
         reqUrl.startsWith("https://api.wonderpush.com") ||
         reqUrl.startsWith("https://o.clarity.ms") ||
