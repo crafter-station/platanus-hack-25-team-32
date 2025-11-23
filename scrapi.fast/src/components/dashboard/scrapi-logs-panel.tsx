@@ -1,6 +1,6 @@
 "use client";
 
-import { Message as V0Message, StreamingMessage } from "@v0-sdk/react";
+import { Message as V0Message, StreamingMessage, CodeBlock, type CodeProjectPartProps } from "@v0-sdk/react";
 import { Loader } from "@/components/ai-elements/loader";
 import {
 	Message,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ai-elements/conversation";
 import { Badge } from "@/components/ui/badge";
 import type { MessageBinaryFormat } from "@/lib/v0-types";
+import { useState } from "react";
 
 interface ChatMessage {
 	id: string;
@@ -30,8 +31,96 @@ interface ScrapiLogsPanelProps {
 	onChatData?: (data: any) => void;
 }
 
+// CodeProjectPart wrapper component with proper styling
+function CodeProjectPartWrapper({
+	title,
+	filename,
+	code,
+	language,
+	collapsed,
+	className,
+	children,
+	...props
+}: CodeProjectPartProps) {
+	const [isCollapsed, setIsCollapsed] = useState(collapsed ?? false);
+
+	return (
+		<div
+			className={`my-4 border border-border rounded-lg overflow-hidden ${className || ""}`}
+			{...props}
+		>
+			<button
+				onClick={() => setIsCollapsed(!isCollapsed)}
+				className="w-full flex items-center justify-between p-4 text-left hover:bg-muted/50 transition-colors"
+			>
+				<div className="flex items-center gap-3">
+					<div className="w-6 h-6 flex items-center justify-center">
+						<svg
+							className="w-5 h-5 text-foreground"
+							fill="currentColor"
+							viewBox="0 0 20 20"
+						>
+							<path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
+						</svg>
+					</div>
+					<span className="font-medium text-foreground">
+						{title || "Code Project"}
+					</span>
+				</div>
+				<div className="flex items-center gap-2">
+					<span className="text-sm text-muted-foreground font-mono">
+						v1
+					</span>
+					<svg
+						className={`w-4 h-4 text-muted-foreground transition-transform ${isCollapsed ? "" : "rotate-90"}`}
+						fill="currentColor"
+						viewBox="0 0 20 20"
+					>
+						<path
+							fillRule="evenodd"
+							d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z"
+							clipRule="evenodd"
+						/>
+					</svg>
+				</div>
+			</button>
+
+			{!isCollapsed && (
+				<div className="border-t border-border">
+					{children || (
+						<div className="p-4">
+							<div className="space-y-2 mb-4">
+								<div className="flex items-center gap-2 text-sm text-foreground">
+									<svg
+										className="w-4 h-4"
+										fill="currentColor"
+										viewBox="0 0 20 20"
+									>
+										<path
+											fillRule="evenodd"
+											d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z"
+											clipRule="evenodd"
+										/>
+									</svg>
+									<span className="font-mono">
+										{filename || "app/page.tsx"}
+									</span>
+								</div>
+							</div>
+						</div>
+					)}
+				</div>
+			)}
+		</div>
+	);
+}
+
 // Custom components to match our design system
 const sharedComponents = {
+	// v0-sdk specific components
+	CodeProjectPart: CodeProjectPartWrapper,
+	CodeBlock,
+
 	// Styled HTML elements
 	p: {
 		className: "mb-4 text-sm leading-relaxed text-foreground",
