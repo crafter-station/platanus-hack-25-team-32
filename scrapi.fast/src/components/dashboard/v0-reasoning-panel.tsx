@@ -1,58 +1,62 @@
-"use client"
+"use client";
 
-import { Badge } from "@/components/ui/badge"
-import { Loader } from "@/components/ai-elements/loader"
+import { Badge } from "@/components/ui/badge";
+import { Loader } from "@/components/ai-elements/loader";
 import {
   Reasoning,
   ReasoningTrigger,
   ReasoningContent,
-} from "@/components/ai-elements/reasoning"
+} from "@/components/ai-elements/reasoning";
 import {
   ChainOfThought,
   ChainOfThoughtHeader,
   ChainOfThoughtStep,
   ChainOfThoughtContent,
-} from "@/components/ai-elements/chain-of-thought"
+} from "@/components/ai-elements/chain-of-thought";
 import {
   Tool,
   ToolHeader,
   ToolContent,
   ToolInput,
   ToolOutput,
-} from "@/components/ai-elements/tool"
+} from "@/components/ai-elements/tool";
 import {
   Message,
   MessageContent,
   MessageResponse,
-} from "@/components/ai-elements/message"
+} from "@/components/ai-elements/message";
 
 interface V0Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  reasoning?: string[]
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  reasoning?: string[];
   tools?: Array<{
-    name: string
-    input: any
-    output?: any
-    state?: 'input-streaming' | 'input-available' | 'output-available' | 'output-error'
-  }>
+    name: string;
+    input: any;
+    output?: any;
+    state?:
+      | "input-streaming"
+      | "input-available"
+      | "output-available"
+      | "output-error";
+  }>;
   tasks?: Array<{
-    description: string
-    status: 'pending' | 'in_progress' | 'completed'
-  }>
+    description: string;
+    status: "pending" | "in_progress" | "completed";
+  }>;
 }
 
 interface V0ReasoningPanelProps {
-  chatId?: string
-  messages: V0Message[]
-  stage: string
+  chatId?: string;
+  messages: V0Message[];
+  stage: string;
 }
 
 export function V0ReasoningPanel({
   chatId,
   messages,
-  stage
+  stage,
 }: V0ReasoningPanelProps) {
   return (
     <div className="flex flex-col overflow-hidden bg-background">
@@ -63,7 +67,10 @@ export function V0ReasoningPanel({
             V0 REASONING PROCESS
           </span>
           {chatId && (
-            <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-mono">
+            <Badge
+              variant="outline"
+              className="h-4 px-1.5 text-[9px] font-mono"
+            >
               {chatId.slice(0, 8)}
             </Badge>
           )}
@@ -76,7 +83,9 @@ export function V0ReasoningPanel({
           <div className="flex items-center justify-center h-full">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Loader size={14} />
-              <span className="text-sm font-mono">Waiting for browser scraping...</span>
+              <span className="text-sm font-mono">
+                Waiting for browser scraping...
+              </span>
             </div>
           </div>
         ) : messages.length === 0 ? (
@@ -91,7 +100,7 @@ export function V0ReasoningPanel({
             {messages.map((msg) => (
               <div key={msg.id} className="space-y-3">
                 {/* User messages */}
-                {msg.role === 'user' && (
+                {msg.role === "user" && (
                   <Message from="user">
                     <MessageContent>
                       <MessageResponse>{msg.content}</MessageResponse>
@@ -100,14 +109,14 @@ export function V0ReasoningPanel({
                 )}
 
                 {/* Assistant reasoning and responses */}
-                {msg.role === 'assistant' && (
+                {msg.role === "assistant" && (
                   <>
                     {/* Reasoning section */}
                     {msg.reasoning && msg.reasoning.length > 0 && (
                       <Reasoning defaultOpen={false}>
                         <ReasoningTrigger />
                         <ReasoningContent>
-                          {msg.reasoning.join('\n\n')}
+                          {msg.reasoning.join("\n\n")}
                         </ReasoningContent>
                       </Reasoning>
                     )}
@@ -124,11 +133,11 @@ export function V0ReasoningPanel({
                               key={i}
                               label={task.description}
                               status={
-                                task.status === 'completed'
-                                  ? 'complete'
-                                  : task.status === 'in_progress'
-                                  ? 'active'
-                                  : 'pending'
+                                task.status === "completed"
+                                  ? "complete"
+                                  : task.status === "in_progress"
+                                    ? "active"
+                                    : "pending"
                               }
                             />
                           ))}
@@ -137,21 +146,25 @@ export function V0ReasoningPanel({
                     )}
 
                     {/* Tools used */}
-                    {msg.tools && msg.tools.map((tool, i) => (
-                      <Tool key={i} defaultOpen={false}>
-                        <ToolHeader
-                          title={tool.name}
-                          type={`tool-${tool.name}`}
-                          state={tool.state || 'output-available'}
-                        />
-                        <ToolContent>
-                          <ToolInput input={tool.input} />
-                          {tool.output && (
-                            <ToolOutput output={tool.output} errorText={undefined} />
-                          )}
-                        </ToolContent>
-                      </Tool>
-                    ))}
+                    {msg.tools &&
+                      msg.tools.map((tool, i) => (
+                        <Tool key={i} defaultOpen={false}>
+                          <ToolHeader
+                            title={tool.name}
+                            type={`tool-${tool.name}`}
+                            state={tool.state || "output-available"}
+                          />
+                          <ToolContent>
+                            <ToolInput input={tool.input} />
+                            {tool.output && (
+                              <ToolOutput
+                                output={tool.output}
+                                errorText={undefined}
+                              />
+                            )}
+                          </ToolContent>
+                        </Tool>
+                      ))}
 
                     {/* Message content */}
                     <Message from="assistant">
@@ -165,11 +178,13 @@ export function V0ReasoningPanel({
             ))}
 
             {/* Loading indicator if still processing */}
-            {(stage === 'generating' || stage === 'retrying') && (
+            {(stage === "generating" || stage === "retrying") && (
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Loader size={14} />
                 <span className="text-sm font-mono">
-                  {stage === 'retrying' ? 'v0 fixing errors...' : 'v0 writing code...'}
+                  {stage === "retrying"
+                    ? "v0 fixing errors..."
+                    : "v0 writing code..."}
                 </span>
               </div>
             )}
@@ -177,5 +192,5 @@ export function V0ReasoningPanel({
         )}
       </div>
     </div>
-  )
+  );
 }

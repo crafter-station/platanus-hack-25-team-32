@@ -1,6 +1,10 @@
 import React from "react";
 
-export function ScrapiIcon({ className = "w-12 h-12" }: { className?: string }) {
+export function ScrapiIcon({
+  className = "w-12 h-12",
+}: {
+  className?: string;
+}) {
   return (
     <svg
       viewBox="0 0 490 200"

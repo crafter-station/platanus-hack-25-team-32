@@ -1,42 +1,45 @@
-"use client"
+"use client";
 
-import { Badge } from "@/components/ui/badge"
-import { Loader } from "@/components/ai-elements/loader"
-import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block"
+import { Badge } from "@/components/ui/badge";
+import { Loader } from "@/components/ai-elements/loader";
+import {
+  CodeBlock,
+  CodeBlockCopyButton,
+} from "@/components/ai-elements/code-block";
 import {
   Task,
   TaskTrigger,
   TaskContent,
   TaskItem,
-} from "@/components/ai-elements/task"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CheckCircleIcon, XCircleIcon, ClockIcon } from "lucide-react"
-import { cn } from "@/lib/utils"
+} from "@/components/ai-elements/task";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CheckCircleIcon, XCircleIcon, ClockIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface TestResult {
-  attempt: number
-  passed: boolean
-  output: string
-  timestamp: string
-  error?: string
+  attempt: number;
+  passed: boolean;
+  output: string;
+  timestamp: string;
+  error?: string;
 }
 
 interface CodeTestPanelProps {
   code?: {
-    getData: string
-    schema: string
-    test: string
-  }
-  testResults: TestResult[]
-  currentAttempt?: number
-  maxAttempts?: number
+    getData: string;
+    schema: string;
+    test: string;
+  };
+  testResults: TestResult[];
+  currentAttempt?: number;
+  maxAttempts?: number;
 }
 
 export function CodeTestPanel({
   code,
   testResults,
   currentAttempt,
-  maxAttempts
+  maxAttempts,
 }: CodeTestPanelProps) {
   return (
     <div className="flex flex-col overflow-hidden bg-background">
@@ -60,7 +63,9 @@ export function CodeTestPanel({
           <div className="flex items-center justify-center h-full">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Loader size={14} />
-              <span className="text-sm font-mono">Waiting for v0 to generate code...</span>
+              <span className="text-sm font-mono">
+                Waiting for v0 to generate code...
+              </span>
             </div>
           </div>
         ) : (
@@ -107,7 +112,9 @@ export function CodeTestPanel({
                 <div className="space-y-2">
                   {testResults.map((result) => (
                     <Task key={result.attempt} defaultOpen={false}>
-                      <TaskTrigger title={`Attempt ${result.attempt}/${maxAttempts || 5}`}>
+                      <TaskTrigger
+                        title={`Attempt ${result.attempt}/${maxAttempts || 5}`}
+                      >
                         <div className="flex w-full cursor-pointer items-center gap-2 text-sm transition-colors hover:text-foreground group">
                           {result.passed ? (
                             <CheckCircleIcon className="size-4 text-green-600" />
@@ -116,10 +123,14 @@ export function CodeTestPanel({
                           ) : (
                             <XCircleIcon className="size-4 text-red-600" />
                           )}
-                          <p className={cn(
-                            "text-sm flex-1",
-                            result.passed ? "text-green-600" : "text-muted-foreground"
-                          )}>
+                          <p
+                            className={cn(
+                              "text-sm flex-1",
+                              result.passed
+                                ? "text-green-600"
+                                : "text-muted-foreground",
+                            )}
+                          >
                             Attempt {result.attempt}/{maxAttempts || 5}
                             {result.passed && " - Passed ✓"}
                           </p>
@@ -132,7 +143,7 @@ export function CodeTestPanel({
                         <TaskItem>
                           <pre className="text-xs font-mono whitespace-pre-wrap bg-muted/50 p-2 rounded">
                             {result.output.slice(0, 500)}
-                            {result.output.length > 500 && '...'}
+                            {result.output.length > 500 && "..."}
                           </pre>
                         </TaskItem>
                         {result.error && (
@@ -152,5 +163,5 @@ export function CodeTestPanel({
         )}
       </div>
     </div>
-  )
+  );
 }

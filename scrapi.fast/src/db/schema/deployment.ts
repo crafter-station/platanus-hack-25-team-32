@@ -12,8 +12,7 @@ export const DeploymentStatus = pgEnum("deployment_status_enum", [
   "archived",
 ]);
 
-export type DeploymentStatusType =
-  (typeof DeploymentStatus.enumValues)[number];
+export type DeploymentStatusType = (typeof DeploymentStatus.enumValues)[number];
 
 export const Deployment = pgTable(DEPLOYMENT_TABLE, {
   id: text("id").primaryKey(),

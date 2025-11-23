@@ -1,32 +1,32 @@
-"use client"
+"use client";
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Loader } from "@/components/ai-elements/loader"
-import { ExternalLink } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Loader } from "@/components/ai-elements/loader";
+import { ExternalLink } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface BrowserbaseLog {
-  timestamp: string
-  type: 'console' | 'network' | 'error'
-  message: string
-  data?: any
+  timestamp: string;
+  type: "console" | "network" | "error";
+  message: string;
+  data?: any;
 }
 
 interface BrowserbasePanelProps {
-  sessionId?: string
-  sessionUrl?: string
-  logs: BrowserbaseLog[]
+  sessionId?: string;
+  sessionUrl?: string;
+  logs: BrowserbaseLog[];
 }
 
 export function BrowserbasePanel({
   sessionId,
   sessionUrl,
-  logs
+  logs,
 }: BrowserbasePanelProps) {
-  const consoleLogs = logs.filter(l => l.type === 'console')
-  const networkLogs = logs.filter(l => l.type === 'network')
-  const errorLogs = logs.filter(l => l.type === 'error')
+  const consoleLogs = logs.filter((l) => l.type === "console");
+  const networkLogs = logs.filter((l) => l.type === "network");
+  const errorLogs = logs.filter((l) => l.type === "error");
 
   return (
     <div className="flex flex-col overflow-hidden bg-background">
@@ -37,22 +37,17 @@ export function BrowserbasePanel({
             BROWSERBASE SESSION
           </span>
           {sessionId && (
-            <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-mono">
+            <Badge
+              variant="outline"
+              className="h-4 px-1.5 text-[9px] font-mono"
+            >
               {sessionId.slice(0, 8)}
             </Badge>
           )}
         </div>
         {sessionUrl && (
-          <a
-            href={sessionUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-5 px-2 text-[10px]"
-            >
+          <a href={sessionUrl} target="_blank" rel="noopener noreferrer">
+            <Button variant="ghost" size="sm" className="h-5 px-2 text-[10px]">
               <ExternalLink className="size-2.5" />
             </Button>
           </a>
@@ -99,14 +94,14 @@ export function BrowserbasePanel({
         )}
       </div>
     </div>
-  )
+  );
 }
 
 interface LogSectionProps {
-  title: string
-  count: number
-  logs: BrowserbaseLog[]
-  icon: string
+  title: string;
+  count: number;
+  logs: BrowserbaseLog[];
+  icon: string;
 }
 
 function LogSection({ title, count, logs, icon }: LogSectionProps) {
@@ -124,12 +119,11 @@ function LogSection({ title, count, logs, icon }: LogSectionProps) {
           <div key={i} className="text-[11px] text-foreground/80">
             <span className="text-muted-foreground">
               {new Date(log.timestamp).toLocaleTimeString()}
-            </span>
-            {' '}
+            </span>{" "}
             {log.message}
           </div>
         ))}
       </div>
     </div>
-  )
+  );
 }

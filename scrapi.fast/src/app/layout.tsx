@@ -16,8 +16,16 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "scrapi.fast - Turn websites into deterministic APIs",
-  description: "Convierte páginas web en APIs deterministas. Transform any website into a reliable, structured API endpoint with scrapi.fast.",
-  keywords: ["API", "web scraping", "automation", "developer tools", "scraping", "data extraction"],
+  description:
+    "Convierte páginas web en APIs deterministas. Transform any website into a reliable, structured API endpoint with scrapi.fast.",
+  keywords: [
+    "API",
+    "web scraping",
+    "automation",
+    "developer tools",
+    "scraping",
+    "data extraction",
+  ],
   authors: [{ name: "scrapi.fast team" }],
   openGraph: {
     title: "scrapi.fast - Turn websites into deterministic APIs",

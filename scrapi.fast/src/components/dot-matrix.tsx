@@ -1,211 +1,215 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useEffect, useRef, useState } from "react"
-import * as THREE from "three"
+import type React from "react";
+import { useEffect, useRef, useState } from "react";
+import * as THREE from "three";
 
-type PixelBlastVariant = "square" | "circle" | "triangle" | "diamond"
+type PixelBlastVariant = "square" | "circle" | "triangle" | "diamond";
 
 type PixelBlastProps = {
-  variant?: PixelBlastVariant
-  pixelSize?: number
-  color?: string
-  className?: string
-  style?: React.CSSProperties
-  antialias?: boolean
-  patternScale?: number
-  patternDensity?: number
-  pixelSizeJitter?: number
-  enableRipples?: boolean
-  rippleIntensityScale?: number
-  rippleThickness?: number
-  rippleSpeed?: number
-  autoPauseOffscreen?: boolean
-  speed?: number
-  transparent?: boolean
-  edgeFade?: number
-}
+  variant?: PixelBlastVariant;
+  pixelSize?: number;
+  color?: string;
+  className?: string;
+  style?: React.CSSProperties;
+  antialias?: boolean;
+  patternScale?: number;
+  patternDensity?: number;
+  pixelSizeJitter?: number;
+  enableRipples?: boolean;
+  rippleIntensityScale?: number;
+  rippleThickness?: number;
+  rippleSpeed?: number;
+  autoPauseOffscreen?: boolean;
+  speed?: number;
+  transparent?: boolean;
+  edgeFade?: number;
+};
 
-let __colorCanvas: HTMLCanvasElement | null = null
-let __colorCtx: CanvasRenderingContext2D | null = null
+let __colorCanvas: HTMLCanvasElement | null = null;
+let __colorCtx: CanvasRenderingContext2D | null = null;
 
 const getColorCtx = () => {
-  if (typeof window === "undefined") return null
+  if (typeof window === "undefined") return null;
   if (!__colorCanvas) {
-    __colorCanvas = document.createElement("canvas")
-    __colorCanvas.width = 1
-    __colorCanvas.height = 1
-    __colorCtx = __colorCanvas.getContext("2d", { willReadFrequently: true })
+    __colorCanvas = document.createElement("canvas");
+    __colorCanvas.width = 1;
+    __colorCanvas.height = 1;
+    __colorCtx = __colorCanvas.getContext("2d", { willReadFrequently: true });
   }
-  return __colorCtx
-}
+  return __colorCtx;
+};
 
-const resolveCssColor = (value: string, scopeEl: HTMLElement | null): string => {
-  if (typeof window === "undefined") return value
-  const parent = scopeEl ?? document.body
-  const el = document.createElement("span")
-  el.style.position = "absolute"
-  el.style.left = "-9999px"
-  el.style.top = "-9999px"
-  el.style.pointerEvents = "none"
-  el.style.opacity = "0"
-  el.style.color = value
-  parent.appendChild(el)
-  const computed = window.getComputedStyle(el).color || value
-  parent.removeChild(el)
+const resolveCssColor = (
+  value: string,
+  scopeEl: HTMLElement | null,
+): string => {
+  if (typeof window === "undefined") return value;
+  const parent = scopeEl ?? document.body;
+  const el = document.createElement("span");
+  el.style.position = "absolute";
+  el.style.left = "-9999px";
+  el.style.top = "-9999px";
+  el.style.pointerEvents = "none";
+  el.style.opacity = "0";
+  el.style.color = value;
+  parent.appendChild(el);
+  const computed = window.getComputedStyle(el).color || value;
+  parent.removeChild(el);
 
   if (/^(#|rgb\(|rgba\(|hsl\(|hwb\()/i.test(computed)) {
-    return computed
+    return computed;
   }
 
-  const ctx = getColorCtx()
-  if (!ctx) return computed
+  const ctx = getColorCtx();
+  if (!ctx) return computed;
   try {
-    ;(ctx as any).fillStyle = "#000"
-    ;(ctx as any).fillStyle = computed
-    const norm = ctx.fillStyle as string
+    (ctx as any).fillStyle = "#000";
+    (ctx as any).fillStyle = computed;
+    const norm = ctx.fillStyle as string;
     if (typeof norm === "string" && /^(#|rgb\()/i.test(norm)) {
-      return norm
+      return norm;
     }
   } catch {
     // fall through to pixel read
   }
   try {
-    ctx.clearRect(0, 0, 1, 1)
-    ;(ctx as any).fillStyle = computed
-    ctx.fillRect(0, 0, 1, 1)
-    const data = ctx.getImageData(0, 0, 1, 1).data
-    const r = data[0]
-    const g = data[1]
-    const b = data[2]
-    const a = data[3] / 255
-    if (a >= 1) return `rgb(${r}, ${g}, ${b})`
-    return `rgba(${r}, ${g}, ${b}, ${Math.round(a * 1000) / 1000})`
+    ctx.clearRect(0, 0, 1, 1);
+    (ctx as any).fillStyle = computed;
+    ctx.fillRect(0, 0, 1, 1);
+    const data = ctx.getImageData(0, 0, 1, 1).data;
+    const r = data[0];
+    const g = data[1];
+    const b = data[2];
+    const a = data[3] / 255;
+    if (a >= 1) return `rgb(${r}, ${g}, ${b})`;
+    return `rgba(${r}, ${g}, ${b}, ${Math.round(a * 1000) / 1000})`;
   } catch {
-    return computed
+    return computed;
   }
-}
+};
 
 const createTouchTexture = () => {
-  const size = 64
-  const canvas = document.createElement("canvas")
-  canvas.width = size
-  canvas.height = size
+  const size = 64;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
   const ctx = canvas.getContext("2d", {
     alpha: true,
     desynchronized: true,
     willReadFrequently: false,
-  })
+  });
   if (!ctx) {
-    throw new Error("2D context not available")
+    throw new Error("2D context not available");
   }
-  ctx.fillStyle = "black"
-  ctx.fillRect(0, 0, canvas.width, canvas.height)
-  const texture = new THREE.Texture(canvas)
-  texture.minFilter = THREE.LinearFilter
-  texture.magFilter = THREE.LinearFilter
-  texture.generateMipmaps = false
-  texture.format = THREE.RGBAFormat
-  texture.type = THREE.UnsignedByteType
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const texture = new THREE.Texture(canvas);
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  texture.format = THREE.RGBAFormat;
+  texture.type = THREE.UnsignedByteType;
   const trail: {
-    x: number
-    y: number
-    vx: number
-    vy: number
-    force: number
-    age: number
-  }[] = []
-  let last: { x: number; y: number } | null = null
-  const maxAge = 64
-  let radius = 0.1 * size
-  const speed = 1 / maxAge
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    force: number;
+    age: number;
+  }[] = [];
+  let last: { x: number; y: number } | null = null;
+  const maxAge = 64;
+  let radius = 0.1 * size;
+  const speed = 1 / maxAge;
   const clear = () => {
-    ctx.fillStyle = "black"
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
-  }
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  };
   const drawPoint = (p: {
-    x: number
-    y: number
-    vx: number
-    vy: number
-    force: number
-    age: number
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    force: number;
+    age: number;
   }) => {
-    const pos = { x: p.x * size, y: (1 - p.y) * size }
-    let intensity = 1
-    const easeOutSine = (t: number) => Math.sin((t * Math.PI) / 2)
-    const easeOutQuad = (t: number) => -t * (t - 2)
-    if (p.age < maxAge * 0.3) intensity = easeOutSine(p.age / (maxAge * 0.3))
-    else intensity = easeOutQuad(1 - (p.age - maxAge * 0.3) / (maxAge * 0.7)) || 0
-    intensity *= p.force
-    const color = `${((p.vx + 1) / 2) * 255}, ${((p.vy + 1) / 2) * 255}, ${intensity * 255}`
-    const offset = size * 5
-    ctx.shadowOffsetX = offset
-    ctx.shadowOffsetY = offset
-    ctx.shadowBlur = radius
-    ctx.shadowColor = `rgba(${color},${0.22 * intensity})`
-    ctx.beginPath()
-    ctx.fillStyle = "rgba(255,0,0,1)"
-    ctx.arc(pos.x - offset, pos.y - offset, radius, 0, Math.PI * 2)
-    ctx.fill()
-  }
+    const pos = { x: p.x * size, y: (1 - p.y) * size };
+    let intensity = 1;
+    const easeOutSine = (t: number) => Math.sin((t * Math.PI) / 2);
+    const easeOutQuad = (t: number) => -t * (t - 2);
+    if (p.age < maxAge * 0.3) intensity = easeOutSine(p.age / (maxAge * 0.3));
+    else
+      intensity = easeOutQuad(1 - (p.age - maxAge * 0.3) / (maxAge * 0.7)) || 0;
+    intensity *= p.force;
+    const color = `${((p.vx + 1) / 2) * 255}, ${((p.vy + 1) / 2) * 255}, ${intensity * 255}`;
+    const offset = size * 5;
+    ctx.shadowOffsetX = offset;
+    ctx.shadowOffsetY = offset;
+    ctx.shadowBlur = radius;
+    ctx.shadowColor = `rgba(${color},${0.22 * intensity})`;
+    ctx.beginPath();
+    ctx.fillStyle = "rgba(255,0,0,1)";
+    ctx.arc(pos.x - offset, pos.y - offset, radius, 0, Math.PI * 2);
+    ctx.fill();
+  };
   const addTouch = (norm: { x: number; y: number }) => {
-    let force = 0
-    let vx = 0
-    let vy = 0
+    let force = 0;
+    let vx = 0;
+    let vy = 0;
     if (last) {
-      const dx = norm.x - last.x
-      const dy = norm.y - last.y
-      if (dx === 0 && dy === 0) return
-      const dd = dx * dx + dy * dy
-      const d = Math.sqrt(dd)
-      vx = dx / (d || 1)
-      vy = dy / (d || 1)
-      force = Math.min(dd * 10_000, 1)
+      const dx = norm.x - last.x;
+      const dy = norm.y - last.y;
+      if (dx === 0 && dy === 0) return;
+      const dd = dx * dx + dy * dy;
+      const d = Math.sqrt(dd);
+      vx = dx / (d || 1);
+      vy = dy / (d || 1);
+      force = Math.min(dd * 10_000, 1);
     }
-    last = { x: norm.x, y: norm.y }
-    trail.push({ x: norm.x, y: norm.y, age: 0, force, vx, vy })
-  }
+    last = { x: norm.x, y: norm.y };
+    trail.push({ x: norm.x, y: norm.y, age: 0, force, vx, vy });
+  };
   const update = () => {
-    clear()
+    clear();
     for (let i = trail.length - 1; i >= 0; i--) {
-      const point = trail[i]
-      const f = point.force * speed * (1 - point.age / maxAge)
-      point.x += point.vx * f
-      point.y += point.vy * f
-      point.age++
-      if (point.age > maxAge) trail.splice(i, 1)
+      const point = trail[i];
+      const f = point.force * speed * (1 - point.age / maxAge);
+      point.x += point.vx * f;
+      point.y += point.vy * f;
+      point.age++;
+      if (point.age > maxAge) trail.splice(i, 1);
     }
-    for (let i = 0; i < trail.length; i++) drawPoint(trail[i])
-    texture.needsUpdate = true
-  }
+    for (let i = 0; i < trail.length; i++) drawPoint(trail[i]);
+    texture.needsUpdate = true;
+  };
   return {
     canvas,
     texture,
     addTouch,
     update,
     set radiusScale(v: number) {
-      radius = 0.1 * size * v
+      radius = 0.1 * size * v;
     },
     get radiusScale() {
-      return radius / (0.1 * size)
+      return radius / (0.1 * size);
     },
     size,
-  }
-}
+  };
+};
 
 const SHAPE_MAP: Record<PixelBlastVariant, number> = {
   square: 0,
   circle: 1,
   triangle: 2,
   diamond: 3,
-}
+};
 
 const VERTEX_SRC = `
 void main() {
   gl_Position = vec4(position, 1.0);
 }
-`
+`;
 const FRAGMENT_SRC = `
 precision highp float;
 
@@ -363,9 +367,9 @@ void main(){
   vec3 color = uColor;
   fragColor = vec4(color, M);
 }
-`
+`;
 
-const MAX_CLICKS = 10
+const MAX_CLICKS = 10;
 
 export const DotMatrix: React.FC<PixelBlastProps> = ({
   variant = "diamond",
@@ -386,95 +390,99 @@ export const DotMatrix: React.FC<PixelBlastProps> = ({
   transparent = true,
   edgeFade = 0,
 }) => {
-  const containerRef = useRef<HTMLDivElement | null>(null)
-  const visibilityRef = useRef({ visible: true })
-  const speedRef = useRef(speed)
-  const prevConfigRef = useRef<Partial<PixelBlastProps>>({})
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const visibilityRef = useRef({ visible: true });
+  const speedRef = useRef(speed);
+  const prevConfigRef = useRef<Partial<PixelBlastProps>>({});
 
-  const [resolvedTheme, setResolvedTheme] = useState<string>('light')
+  const [resolvedTheme, setResolvedTheme] = useState<string>("light");
 
   useEffect(() => {
     // Detect theme from CSS variable or media query
     const checkTheme = () => {
-      if (typeof window === 'undefined') return
-      const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches
-      setResolvedTheme(isDark ? 'dark' : 'light')
-    }
+      if (typeof window === "undefined") return;
+      const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      setResolvedTheme(isDark ? "dark" : "light");
+    };
 
-    checkTheme()
+    checkTheme();
 
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    const handler = () => checkTheme()
-    mediaQuery.addEventListener('change', handler)
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const handler = () => checkTheme();
+    mediaQuery.addEventListener("change", handler);
 
-    return () => mediaQuery.removeEventListener('change', handler)
-  }, [])
+    return () => mediaQuery.removeEventListener("change", handler);
+  }, []);
 
   const threeRef = useRef<{
-    renderer: THREE.WebGLRenderer
-    scene: THREE.Scene
-    camera: THREE.OrthographicCamera
-    material: THREE.ShaderMaterial
-    clock: THREE.Clock
-    clickIx: number
+    renderer: THREE.WebGLRenderer;
+    scene: THREE.Scene;
+    camera: THREE.OrthographicCamera;
+    material: THREE.ShaderMaterial;
+    clock: THREE.Clock;
+    clickIx: number;
     uniforms: {
-      uResolution: { value: THREE.Vector2 }
-      uTime: { value: number }
-      uColor: { value: THREE.Color }
-      uClickPos: { value: THREE.Vector2[] }
-      uClickTimes: { value: Float32Array }
-      uShapeType: { value: number }
-      uPixelSize: { value: number }
-      uScale: { value: number }
-      uDensity: { value: number }
-      uPixelJitter: { value: number }
-      uEnableRipples: { value: number }
-      uRippleSpeed: { value: number }
-      uRippleThickness: { value: number }
-      uRippleIntensity: { value: number }
-      uEdgeFade: { value: number }
-    }
-    resizeObserver?: ResizeObserver
-    raf?: number
-    resizeRaf?: number
-    resizeTimer?: number
-    quad?: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>
-    timeOffset?: number
-    touch?: ReturnType<typeof createTouchTexture>
-    lastResolvedColor?: string
-    colorInput?: string
-  } | null>(null)
+      uResolution: { value: THREE.Vector2 };
+      uTime: { value: number };
+      uColor: { value: THREE.Color };
+      uClickPos: { value: THREE.Vector2[] };
+      uClickTimes: { value: Float32Array };
+      uShapeType: { value: number };
+      uPixelSize: { value: number };
+      uScale: { value: number };
+      uDensity: { value: number };
+      uPixelJitter: { value: number };
+      uEnableRipples: { value: number };
+      uRippleSpeed: { value: number };
+      uRippleThickness: { value: number };
+      uRippleIntensity: { value: number };
+      uEdgeFade: { value: number };
+    };
+    resizeObserver?: ResizeObserver;
+    raf?: number;
+    resizeRaf?: number;
+    resizeTimer?: number;
+    quad?: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
+    timeOffset?: number;
+    touch?: ReturnType<typeof createTouchTexture>;
+    lastResolvedColor?: string;
+    colorInput?: string;
+  } | null>(null);
 
   const themeColor =
-    color || (resolvedTheme === "dark" ? "hsl(var(--foreground) / 0.6)" : "hsl(var(--foreground) / 0.4)")
+    color ||
+    (resolvedTheme === "dark"
+      ? "hsl(var(--foreground) / 0.6)"
+      : "hsl(var(--foreground) / 0.4)");
 
   useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-    speedRef.current = speed
-    const needsReinitKeys: Array<keyof PixelBlastProps> = ["antialias"]
-    const cfg: PixelBlastProps = { antialias }
-    let mustReinit = false
-    if (!threeRef.current) mustReinit = true
+    const container = containerRef.current;
+    if (!container) return;
+    speedRef.current = speed;
+    const needsReinitKeys: Array<keyof PixelBlastProps> = ["antialias"];
+    const cfg: PixelBlastProps = { antialias };
+    let mustReinit = false;
+    if (!threeRef.current) mustReinit = true;
     else if (prevConfigRef.current) {
       for (const k of needsReinitKeys)
         if (prevConfigRef.current[k] !== cfg[k]) {
-          mustReinit = true
-          break
+          mustReinit = true;
+          break;
         }
     }
     if (mustReinit) {
       if (threeRef.current) {
-        const t = threeRef.current
-        t.resizeObserver?.disconnect()
-        cancelAnimationFrame(t.raf!)
-        t.quad?.geometry.dispose()
-        t.material.dispose()
-        t.renderer.dispose()
-        if (t.renderer.domElement.parentElement === container) container.removeChild(t.renderer.domElement)
-        threeRef.current = null
+        const t = threeRef.current;
+        t.resizeObserver?.disconnect();
+        cancelAnimationFrame(t.raf!);
+        t.quad?.geometry.dispose();
+        t.material.dispose();
+        t.renderer.dispose();
+        if (t.renderer.domElement.parentElement === container)
+          container.removeChild(t.renderer.domElement);
+        threeRef.current = null;
       }
-      const canvas = document.createElement("canvas")
+      const canvas = document.createElement("canvas");
       const renderer = new THREE.WebGLRenderer({
         canvas,
         antialias: false,
@@ -485,22 +493,25 @@ export const DotMatrix: React.FC<PixelBlastProps> = ({
         premultipliedAlpha: true,
         preserveDrawingBuffer: false,
         failIfMajorPerformanceCaveat: false,
-      })
-      renderer.domElement.style.width = "100%"
-      renderer.domElement.style.height = "100%"
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5))
-      renderer.info.autoReset = false
-      renderer.shadowMap.enabled = false
-      container.appendChild(renderer.domElement)
-      if (transparent) renderer.setClearAlpha(0)
-      else renderer.setClearColor(0x00_00_00, 1)
+      });
+      renderer.domElement.style.width = "100%";
+      renderer.domElement.style.height = "100%";
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+      renderer.info.autoReset = false;
+      renderer.shadowMap.enabled = false;
+      container.appendChild(renderer.domElement);
+      if (transparent) renderer.setClearAlpha(0);
+      else renderer.setClearColor(0x00_00_00, 1);
       const uniforms = {
         uResolution: { value: new THREE.Vector2(0, 0) },
         uTime: { value: 0 },
 
         uColor: { value: new THREE.Color(1, 1, 1) },
         uClickPos: {
-          value: Array.from({ length: MAX_CLICKS }, () => new THREE.Vector2(-1, -1)),
+          value: Array.from(
+            { length: MAX_CLICKS },
+            () => new THREE.Vector2(-1, -1),
+          ),
         },
         uClickTimes: { value: new Float32Array(MAX_CLICKS) },
         uShapeType: { value: SHAPE_MAP[variant] ?? 0 },
@@ -513,15 +524,15 @@ export const DotMatrix: React.FC<PixelBlastProps> = ({
         uRippleThickness: { value: rippleThickness },
         uRippleIntensity: { value: rippleIntensityScale },
         uEdgeFade: { value: edgeFade },
-      }
+      };
 
-      const initialResolved = resolveCssColor(themeColor, container)
-      uniforms.uColor.value.setStyle(initialResolved)
-      const scene = new THREE.Scene()
-      scene.matrixAutoUpdate = false
+      const initialResolved = resolveCssColor(themeColor, container);
+      uniforms.uColor.value.setStyle(initialResolved);
+      const scene = new THREE.Scene();
+      scene.matrixAutoUpdate = false;
 
-      const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1)
-      camera.matrixAutoUpdate = false
+      const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+      camera.matrixAutoUpdate = false;
 
       const material = new THREE.ShaderMaterial({
         vertexShader: VERTEX_SRC,
@@ -532,121 +543,130 @@ export const DotMatrix: React.FC<PixelBlastProps> = ({
         depthWrite: false,
         glslVersion: THREE.GLSL3,
         precision: "lowp",
-      })
-      const quadGeom = new THREE.PlaneGeometry(2, 2)
-      const quad = new THREE.Mesh(quadGeom, material)
-      quad.matrixAutoUpdate = false
-      quad.frustumCulled = false
-      scene.add(quad)
-      const clock = new THREE.Clock()
+      });
+      const quadGeom = new THREE.PlaneGeometry(2, 2);
+      const quad = new THREE.Mesh(quadGeom, material);
+      quad.matrixAutoUpdate = false;
+      quad.frustumCulled = false;
+      scene.add(quad);
+      const clock = new THREE.Clock();
 
-      const RESIZE_DEBOUNCE = 160 // ms
-      let resizeTimer: number | undefined
-      let pendingW = 0
-      let pendingH = 0
+      const RESIZE_DEBOUNCE = 160; // ms
+      let resizeTimer: number | undefined;
+      let pendingW = 0;
+      let pendingH = 0;
       const applyResize = () => {
-        const w = pendingW || container.clientWidth || 1
-        const h = pendingH || container.clientHeight || 1
-        pendingW = 0
-        pendingH = 0
-        const canvas = renderer.domElement
-        const targetW = w
-        const targetH = h
-        const pixelRatio = renderer.getPixelRatio()
-        if (canvas.width === targetW * pixelRatio && canvas.height === targetH * pixelRatio) return
-        renderer.setSize(targetW, targetH, false)
-        uniforms.uResolution.value.set(canvas.width, canvas.height)
-        uniforms.uPixelSize.value = pixelSize * pixelRatio
-        renderer.render(scene, camera)
-      }
+        const w = pendingW || container.clientWidth || 1;
+        const h = pendingH || container.clientHeight || 1;
+        pendingW = 0;
+        pendingH = 0;
+        const canvas = renderer.domElement;
+        const targetW = w;
+        const targetH = h;
+        const pixelRatio = renderer.getPixelRatio();
+        if (
+          canvas.width === targetW * pixelRatio &&
+          canvas.height === targetH * pixelRatio
+        )
+          return;
+        renderer.setSize(targetW, targetH, false);
+        uniforms.uResolution.value.set(canvas.width, canvas.height);
+        uniforms.uPixelSize.value = pixelSize * pixelRatio;
+        renderer.render(scene, camera);
+      };
       const scheduleResize = () => {
-        pendingW = container.clientWidth || 1
-        pendingH = container.clientHeight || 1
-        if (resizeTimer) window.clearTimeout(resizeTimer)
-        resizeTimer = window.setTimeout(applyResize, RESIZE_DEBOUNCE)
-        if (threeRef.current) threeRef.current.resizeTimer = resizeTimer
-      }
+        pendingW = container.clientWidth || 1;
+        pendingH = container.clientHeight || 1;
+        if (resizeTimer) window.clearTimeout(resizeTimer);
+        resizeTimer = window.setTimeout(applyResize, RESIZE_DEBOUNCE);
+        if (threeRef.current) threeRef.current.resizeTimer = resizeTimer;
+      };
 
-      pendingW = container.clientWidth || 1
-      pendingH = container.clientHeight || 1
-      applyResize()
-      const ro = new ResizeObserver(scheduleResize)
-      ro.observe(container)
+      pendingW = container.clientWidth || 1;
+      pendingH = container.clientHeight || 1;
+      applyResize();
+      const ro = new ResizeObserver(scheduleResize);
+      ro.observe(container);
       const randomFloat = () => {
-        if (typeof window !== "undefined" && window.crypto && typeof window.crypto.getRandomValues === "function") {
-          const u32 = new Uint32Array(1)
-          window.crypto.getRandomValues(u32)
-          return u32[0] / 0xff_ff_ff_ff
+        if (
+          typeof window !== "undefined" &&
+          window.crypto &&
+          typeof window.crypto.getRandomValues === "function"
+        ) {
+          const u32 = new Uint32Array(1);
+          window.crypto.getRandomValues(u32);
+          return u32[0] / 0xff_ff_ff_ff;
         }
-        return Math.random()
-      }
-      const timeOffset = randomFloat() * 1000
-      let touch: ReturnType<typeof createTouchTexture> | undefined
+        return Math.random();
+      };
+      const timeOffset = randomFloat() * 1000;
+      let touch: ReturnType<typeof createTouchTexture> | undefined;
 
       const mapToPixels = (e: PointerEvent) => {
-        const rect = renderer.domElement.getBoundingClientRect()
-        const scaleX = renderer.domElement.width / rect.width
-        const scaleY = renderer.domElement.height / rect.height
-        const fx = (e.clientX - rect.left) * scaleX
-        const fy = (rect.height - (e.clientY - rect.top)) * scaleY
+        const rect = renderer.domElement.getBoundingClientRect();
+        const scaleX = renderer.domElement.width / rect.width;
+        const scaleY = renderer.domElement.height / rect.height;
+        const fx = (e.clientX - rect.left) * scaleX;
+        const fy = (rect.height - (e.clientY - rect.top)) * scaleY;
         return {
           fx,
           fy,
           w: renderer.domElement.width,
           h: renderer.domElement.height,
-        }
-      }
+        };
+      };
       const onPointerDown = (e: PointerEvent) => {
-        const { fx, fy } = mapToPixels(e)
-        const ix = threeRef.current?.clickIx ?? 0
-        uniforms.uClickPos.value[ix].set(fx, fy)
-        uniforms.uClickTimes.value[ix] = uniforms.uTime.value
-        if (threeRef.current) threeRef.current.clickIx = (ix + 1) % MAX_CLICKS
-      }
+        const { fx, fy } = mapToPixels(e);
+        const ix = threeRef.current?.clickIx ?? 0;
+        uniforms.uClickPos.value[ix].set(fx, fy);
+        uniforms.uClickTimes.value[ix] = uniforms.uTime.value;
+        if (threeRef.current) threeRef.current.clickIx = (ix + 1) % MAX_CLICKS;
+      };
       const onPointerMove = (e: PointerEvent) => {
-        if (!touch) return
-        const { fx, fy, w, h } = mapToPixels(e)
-        touch.addTouch({ x: fx / w, y: fy / h })
-      }
+        if (!touch) return;
+        const { fx, fy, w, h } = mapToPixels(e);
+        touch.addTouch({ x: fx / w, y: fy / h });
+      };
       renderer.domElement.addEventListener("pointerdown", onPointerDown, {
         passive: true,
-      })
+      });
       renderer.domElement.addEventListener("pointermove", onPointerMove, {
         passive: true,
-      })
-      let raf = 0
-      let lastFrameTime = 0
-      const targetFPS = 60
-      const frameInterval = 1000 / targetFPS
+      });
+      let raf = 0;
+      let lastFrameTime = 0;
+      const targetFPS = 60;
+      const frameInterval = 1000 / targetFPS;
 
       const animate = (currentTime: number) => {
-        raf = requestAnimationFrame(animate)
+        raf = requestAnimationFrame(animate);
 
         if (autoPauseOffscreen && !visibilityRef.current.visible) {
-          return
+          return;
         }
 
-        const elapsed = currentTime - lastFrameTime
+        const elapsed = currentTime - lastFrameTime;
         if (elapsed < frameInterval) {
-          return
+          return;
         }
-        lastFrameTime = currentTime - (elapsed % frameInterval)
+        lastFrameTime = currentTime - (elapsed % frameInterval);
 
-        uniforms.uTime.value = timeOffset + clock.getElapsedTime() * speedRef.current
+        uniforms.uTime.value =
+          timeOffset + clock.getElapsedTime() * speedRef.current;
 
-        const colorStr = threeRef.current?.colorInput ?? themeColor
+        const colorStr = threeRef.current?.colorInput ?? themeColor;
         if (/\bvar\(/.test(colorStr)) {
-          const resolved = resolveCssColor(colorStr, container)
+          const resolved = resolveCssColor(colorStr, container);
           if (resolved !== threeRef.current?.lastResolvedColor) {
-            uniforms.uColor.value.setStyle(resolved)
-            if (threeRef.current) threeRef.current.lastResolvedColor = resolved
+            uniforms.uColor.value.setStyle(resolved);
+            if (threeRef.current) threeRef.current.lastResolvedColor = resolved;
           }
         }
 
-        if (touch) touch.update()
-        renderer.render(scene, camera)
-      }
-      raf = requestAnimationFrame(animate)
+        if (touch) touch.update();
+        renderer.render(scene, camera);
+      };
+      raf = requestAnimationFrame(animate);
       threeRef.current = {
         renderer,
         scene,
@@ -663,41 +683,42 @@ export const DotMatrix: React.FC<PixelBlastProps> = ({
         touch,
         lastResolvedColor: initialResolved,
         colorInput: themeColor,
-      }
+      };
     } else {
-      const t = threeRef.current!
-      t.uniforms.uShapeType.value = SHAPE_MAP[variant] ?? 0
-      t.uniforms.uPixelSize.value = pixelSize * t.renderer.getPixelRatio()
-      const resolvedNow = resolveCssColor(themeColor, container)
-      t.uniforms.uColor.value.setStyle(resolvedNow)
-      t.lastResolvedColor = resolvedNow
-      t.colorInput = themeColor
-      t.uniforms.uScale.value = patternScale
-      t.uniforms.uDensity.value = patternDensity
-      t.uniforms.uPixelJitter.value = pixelSizeJitter
-      t.uniforms.uEnableRipples.value = enableRipples ? 1 : 0
-      t.uniforms.uRippleIntensity.value = rippleIntensityScale
-      t.uniforms.uRippleThickness.value = rippleThickness
-      t.uniforms.uRippleSpeed.value = rippleSpeed
-      t.uniforms.uEdgeFade.value = edgeFade
-      if (transparent) t.renderer.setClearAlpha(0)
-      else t.renderer.setClearColor(0x00_00_00, 1)
+      const t = threeRef.current!;
+      t.uniforms.uShapeType.value = SHAPE_MAP[variant] ?? 0;
+      t.uniforms.uPixelSize.value = pixelSize * t.renderer.getPixelRatio();
+      const resolvedNow = resolveCssColor(themeColor, container);
+      t.uniforms.uColor.value.setStyle(resolvedNow);
+      t.lastResolvedColor = resolvedNow;
+      t.colorInput = themeColor;
+      t.uniforms.uScale.value = patternScale;
+      t.uniforms.uDensity.value = patternDensity;
+      t.uniforms.uPixelJitter.value = pixelSizeJitter;
+      t.uniforms.uEnableRipples.value = enableRipples ? 1 : 0;
+      t.uniforms.uRippleIntensity.value = rippleIntensityScale;
+      t.uniforms.uRippleThickness.value = rippleThickness;
+      t.uniforms.uRippleSpeed.value = rippleSpeed;
+      t.uniforms.uEdgeFade.value = edgeFade;
+      if (transparent) t.renderer.setClearAlpha(0);
+      else t.renderer.setClearColor(0x00_00_00, 1);
     }
-    prevConfigRef.current = cfg
+    prevConfigRef.current = cfg;
     return () => {
-      if (threeRef.current && mustReinit) return
-      if (!threeRef.current) return
-      const t = threeRef.current
-      t.resizeObserver?.disconnect()
-      cancelAnimationFrame(t.raf!)
+      if (threeRef.current && mustReinit) return;
+      if (!threeRef.current) return;
+      const t = threeRef.current;
+      t.resizeObserver?.disconnect();
+      cancelAnimationFrame(t.raf!);
 
-      if (t.resizeTimer) window.clearTimeout(t.resizeTimer)
-      t.quad?.geometry.dispose()
-      t.material.dispose()
-      t.renderer.dispose()
-      if (t.renderer.domElement.parentElement === container) container.removeChild(t.renderer.domElement)
-      threeRef.current = null
-    }
+      if (t.resizeTimer) window.clearTimeout(t.resizeTimer);
+      t.quad?.geometry.dispose();
+      t.material.dispose();
+      t.renderer.dispose();
+      if (t.renderer.domElement.parentElement === container)
+        container.removeChild(t.renderer.domElement);
+      threeRef.current = null;
+    };
   }, [
     antialias,
     pixelSize,
@@ -714,7 +735,7 @@ export const DotMatrix: React.FC<PixelBlastProps> = ({
     variant,
     themeColor,
     speed,
-  ])
+  ]);
 
   return (
     <div
@@ -746,5 +767,5 @@ export const DotMatrix: React.FC<PixelBlastProps> = ({
         style={{ transform: "translateZ(0)" }}
       />
     </div>
-  )
-}
+  );
+};

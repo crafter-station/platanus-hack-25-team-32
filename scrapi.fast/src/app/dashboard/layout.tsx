@@ -23,9 +23,7 @@ export default function DashboardLayout({
       </header>
       <div className="calc-screen-header-compact flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-auto">
-          {children}
-        </main>
+        <main className="flex-1 overflow-auto">{children}</main>
       </div>
     </div>
   );

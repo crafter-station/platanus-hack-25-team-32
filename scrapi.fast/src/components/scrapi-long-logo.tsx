@@ -1,6 +1,10 @@
 import React from "react";
 
-export function ScrapiLongLogo({ className = "h-8 w-auto" }: { className?: string }) {
+export function ScrapiLongLogo({
+  className = "h-8 w-auto",
+}: {
+  className?: string;
+}) {
   return (
     <svg
       viewBox="0 0 1191 250"
