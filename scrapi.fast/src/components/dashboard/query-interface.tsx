@@ -12,9 +12,9 @@ import useSWR from "swr";
 import { Shimmer } from "@/components/ai-elements/shimmer";
 
 const PLACEHOLDER_PROMPTS = [
-  "Generate an API that returns the sell and buy price of USD in Peru from https://kambista.com/",
-  "Fetch the five most recent events, including the date, time, registration link, and image from https://www.buk.cl/recursos/eventos-recursos-humanos",
-  "Extract the title and description of the upcoming Buk webinars from https://www.buk.cl/recursos/eventos-recursos-humanos",
+  "Generate an API that returns the sell and buy price of USD in Peru from https://kambista.com",
+  "I need an API to get the list of hosts of a Luma event, given it's id https://luma.com/slqfykte",
+  "Extract the title and date of the upcoming Buk webinars from https://www.buk.cl/recursos/eventos-recursos-humanos",
 ];
 
 type WorkflowStage =
